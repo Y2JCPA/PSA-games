@@ -7,11 +7,17 @@ import { CharacterSelect } from './CharacterSelect';
 import { MakoletShop } from './MakoletShop';
 import { GoalPicker } from './GoalPicker';
 import { ChoreBoard } from '../../components/ChoreBoard';
+import { LevelNavBar } from '../../components/LevelNavBar';
 import { colors, fonts, spacing } from '../../theme';
 
 type Level1View = 'intro' | 'characterSelect' | 'howItWorks' | 'chores' | 'shop' | 'goalPicker';
 
-export const Level1Screen: React.FC = () => {
+interface Level1Props {
+  onHome: () => void;
+  onRestart: () => void;
+}
+
+export const Level1Screen: React.FC<Level1Props> = ({ onHome, onRestart }) => {
   const { t } = useTranslation();
   const { levels, language, addIncome, advanceDay } = useGameStore();
   const level = levels[1];
@@ -54,7 +60,12 @@ export const Level1Screen: React.FC = () => {
   }
 
   if (view === 'characterSelect') {
-    return <CharacterSelect onSelect={() => setView('howItWorks')} />;
+    return (
+      <>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <CharacterSelect onSelect={() => setView('howItWorks')} />
+      </>
+    );
   }
 
   if (view === 'howItWorks') {
@@ -115,6 +126,8 @@ export const Level1Screen: React.FC = () => {
 
   if (view === 'chores') {
     return (
+      <>
+      <LevelNavBar onHome={onHome} onRestart={onRestart} />
       <ChoreBoard
         currentDay={level.currentDay}
         currentWeek={level.currentWeek}
@@ -122,6 +135,7 @@ export const Level1Screen: React.FC = () => {
         onComplete={handleChoresComplete}
         onSkip={handleChoresSkip}
       />
+      </>
     );
   }
 
@@ -135,10 +149,13 @@ export const Level1Screen: React.FC = () => {
   }
 
   return (
-    <MakoletShop
-      onSetGoal={() => setView('goalPicker')}
-      onNextDay={handleNextDay}
-    />
+    <>
+      <LevelNavBar onHome={onHome} onRestart={onRestart} />
+      <MakoletShop
+        onSetGoal={() => setView('goalPicker')}
+        onNextDay={handleNextDay}
+      />
+    </>
   );
 };
 

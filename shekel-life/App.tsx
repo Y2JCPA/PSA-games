@@ -14,6 +14,8 @@ type Screen = 'splash' | 'home' | 'badges' | 'level1' | 'level2' | 'level3' | 'l
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash');
+  // Restart key forces remount of level components
+  const [restartKey, setRestartKey] = useState(0);
 
   const handleSelectLevel = (level: LevelId) => {
     const screenMap: Record<LevelId, Screen> = {
@@ -23,6 +25,15 @@ export default function App() {
       4: 'level4',
     };
     setScreen(screenMap[level]);
+  };
+
+  const handleHome = () => {
+    setScreen('home');
+  };
+
+  const handleRestart = () => {
+    // Increment key to force full remount
+    setRestartKey((k) => k + 1);
   };
 
   switch (screen) {
@@ -36,7 +47,7 @@ export default function App() {
     case 'home':
       return (
         <>
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <HomeScreen
             onSelectLevel={handleSelectLevel}
             onViewBadges={() => setScreen('badges')}
@@ -54,28 +65,28 @@ export default function App() {
       return (
         <>
           <StatusBar style="dark" />
-          <Level1Screen />
+          <Level1Screen key={restartKey} onHome={handleHome} onRestart={handleRestart} />
         </>
       );
     case 'level2':
       return (
         <>
           <StatusBar style="dark" />
-          <Level2Screen />
+          <Level2Screen key={restartKey} onHome={handleHome} onRestart={handleRestart} />
         </>
       );
     case 'level3':
       return (
         <>
           <StatusBar style="dark" />
-          <Level3Screen />
+          <Level3Screen key={restartKey} onHome={handleHome} onRestart={handleRestart} />
         </>
       );
     case 'level4':
       return (
         <>
           <StatusBar style="dark" />
-          <Level4Screen />
+          <Level4Screen key={restartKey} onHome={handleHome} onRestart={handleRestart} />
         </>
       );
   }

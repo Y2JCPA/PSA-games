@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store';
 import { MaaserModal } from '../../components/MaaserModal';
+import { LevelNavBar } from '../../components/LevelNavBar';
 import { colors, fonts, spacing, borderRadius } from '../../theme';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -123,7 +124,12 @@ function getStarRating(value: number): string {
 }
 
 // ─── Component ───────────────────────────────────────────────
-export const Level2Screen: React.FC = () => {
+interface Level2Props {
+  onHome: () => void;
+  onRestart: () => void;
+}
+
+export const Level2Screen: React.FC<Level2Props> = ({ onHome, onRestart }) => {
   const { t } = useTranslation();
   const {
     levels,
@@ -421,6 +427,7 @@ export const Level2Screen: React.FC = () => {
   if (view === 'weekChoices') {
     return (
       <SafeAreaView style={styles.scrollContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Week header */}
           <Text style={styles.weekHeader}>Week {currentWeek} of {TOTAL_WEEKS}</Text>
@@ -508,6 +515,7 @@ export const Level2Screen: React.FC = () => {
 
     return (
       <SafeAreaView style={styles.scrollContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title}>📊 Week {currentWeek} Summary</Text>
 

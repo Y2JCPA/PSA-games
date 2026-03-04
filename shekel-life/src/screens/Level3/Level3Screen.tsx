@@ -5,6 +5,7 @@ import { useGameStore } from '../../store';
 import { BudgetDashboard } from '../../components/BudgetDashboard';
 import { ConsequenceModal } from '../../components/ConsequenceModal';
 import { MaaserModal } from '../../components/MaaserModal';
+import { LevelNavBar } from '../../components/LevelNavBar';
 import { colors, fonts, spacing, borderRadius } from '../../theme';
 
 type Level3View =
@@ -70,7 +71,12 @@ const GOALS: SavingsGoalOption[] = [
 
 const defaultWorkPlan = () => Array.from({ length: WEEKS_PER_MONTH }, () => Array(5).fill(false));
 
-export const Level3Screen: React.FC = () => {
+interface Level3Props {
+  onHome: () => void;
+  onRestart: () => void;
+}
+
+export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
   const { t } = useTranslation();
   const {
     levels,
@@ -435,6 +441,7 @@ export const Level3Screen: React.FC = () => {
   if (view === 'workCalendar' && job) {
     return (
       <SafeAreaView style={styles.container}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.weekBadge}>{t('level3Ui.monthOf', { month: currentMonth, total: TOTAL_MONTHS })}</Text>
           <Text style={styles.title}>{t('level3WorkCalendar.title')}</Text>
@@ -677,6 +684,7 @@ export const Level3Screen: React.FC = () => {
   if (view === 'monthSummary') {
     return (
       <SafeAreaView style={styles.container}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>{t('level3Ui.monthSummaryTitle', { month: currentMonth })}</Text>
           <View style={styles.summaryCard}>

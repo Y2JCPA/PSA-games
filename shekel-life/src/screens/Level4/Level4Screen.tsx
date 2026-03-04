@@ -1,13 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { LevelNavBar } from '../../components/LevelNavBar';
 import { colors, fonts, spacing, borderRadius } from '../../theme';
 
-export const Level4Screen: React.FC = () => {
+interface Level4Props {
+  onHome: () => void;
+  onRestart: () => void;
+}
+
+export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   const { t } = useTranslation();
 
   return (
     <SafeAreaView style={styles.container}>
+      <LevelNavBar onHome={onHome} onRestart={onRestart} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.emoji}>🏦</Text>
         <Text style={styles.title}>{t('levels.level4.title')}</Text>
