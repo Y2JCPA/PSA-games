@@ -129,6 +129,30 @@ export const MakoletShop: React.FC<MakoletShopProps> = ({ onSetGoal }) => {
 
   const goalItem = level.savingGoal ? getItemById(level.savingGoal.itemId) : undefined;
 
+  // Check if player can't afford anything (cheapest item is ₪2)
+  const cheapestPrice = Math.min(...level1Items.map(i => i.price));
+  const cantAffordAnything = level.balance < cheapestPrice && level.balance > 0;
+
+  const handleGiveTzedakah = useCallback(() => {
+    const amount = level.balance;
+    if (amount <= 0) return;
+    // Use addMaaser to track tzedakah giving
+    const { addMaaser, earnBadge } = useGameStore.getState();
+    addMaaser(1, amount);
+    // Check badges after giving
+    const newBadges = checkBadges(useGameStore.getState().levels[1], useGameStore.getState().badges);
+    newBadges.forEach((badgeId) => earnBadge(badgeId));
+  }, [level.balance]);
+
+  const handleSkipToNextWeek = useCallback(() => {
+    // Advance to Sunday (day 1) of next week
+    const { advanceWeek, addIncome: addIncomeAction } = useGameStore.getState();
+    advanceWeek(1);
+    // Weekly gift from grandparents: ₪10-20
+    const gift = 10 + Math.floor(Math.random() * 11);
+    addIncomeAction(1, gift);
+  }, []);
+
   const renderShelfItem = ({ item }: { item: ShopItem }) => {
     const canAfford = item.price <= level.balance - basketTotal;
     return (
@@ -180,6 +204,34 @@ export const MakoletShop: React.FC<MakoletShopProps> = ({ onSetGoal }) => {
           <TouchableOpacity style={styles.setGoalButton} onPress={onSetGoal}>
             <Text style={styles.setGoalText}>{t('shopping.setSavingGoal')}</Text>
           </TouchableOpacity>
+        )}
+
+        {/* Low Balance Actions */}
+        {cantAffordAnything && (
+          <View style={styles.lowBalanceBox}>
+            <Text style={styles.lowBalanceEmoji}>🤔</Text>
+            <Text style={styles.lowBalanceText}>
+              {t('shopping.cantAffordAnything', { balance: level.balance })}
+            </Text>
+            <View style={styles.lowBalanceActions}>
+              <TouchableOpacity
+                style={styles.tzedakahButton}
+                onPress={handleGiveTzedakah}
+              >
+                <Text style={styles.tzedakahButtonText}>
+                  🤝 {t('shopping.giveTzedakah', { amount: level.balance })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.holdMoneyButton}
+                onPress={handleSkipToNextWeek}
+              >
+                <Text style={styles.holdMoneyText}>
+                  💰 {t('shopping.holdAndWait')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
         {/* Shop Tabs */}
@@ -395,5 +447,55 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fonts.sizes.lg,
     fontWeight: '700',
+  },
+  lowBalanceBox: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFD54F',
+  },
+  lowBalanceEmoji: {
+    fontSize: 40,
+    marginBottom: spacing.sm,
+  },
+  lowBalanceText: {
+    fontSize: fonts.sizes.md,
+    color: colors.darkGray,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    lineHeight: 22,
+  },
+  lowBalanceActions: {
+    width: '100%',
+    gap: spacing.sm,
+  },
+  tzedakahButton: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#66BB6A',
+  },
+  tzedakahButtonText: {
+    fontSize: fonts.sizes.md,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  holdMoneyButton: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#42A5F5',
+  },
+  holdMoneyText: {
+    fontSize: fonts.sizes.md,
+    fontWeight: '700',
+    color: '#1565C0',
   },
 });

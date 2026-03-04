@@ -85,7 +85,10 @@
     "setSavingGoal": "Set a Saving Goal",
     "goalReached": "You reached your goal! 🎉",
     "shabbatClosed": "The makolet is closed for Shabbat. Plan your shopping for tomorrow!",
-    "yomTovClosed": "The makolet is closed for Yom Tov."
+    "yomTovClosed": "The makolet is closed for Yom Tov.",
+    "cantAffordAnything": "You only have ₪{{balance}} left — not enough to buy anything this week!",
+    "giveTzedakah": "Give ₪{{amount}} to Tzedakah",
+    "holdAndWait": "Hold my money — skip to next week"
   },
   "items": {
     "candy": "Candy",

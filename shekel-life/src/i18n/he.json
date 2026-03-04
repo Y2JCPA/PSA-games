@@ -85,7 +85,10 @@
     "setSavingGoal": "הגדר מטרת חיסכון",
     "goalReached": "🎉 !הגעת למטרה שלך",
     "shabbatClosed": "!המכולת סגורה לשבת. תכנן את הקניות למחר",
-    "yomTovClosed": ".המכולת סגורה ליום טוב"
+    "yomTovClosed": ".המכולת סגורה ליום טוב",
+    "cantAffordAnything": "!נשארו לך רק ₪{{balance}} — לא מספיק לקנות השבוע",
+    "giveTzedakah": "תרום ₪{{amount}} לצדקה",
+    "holdAndWait": "שמור את הכסף — דלג לשבוע הבא"
   },
   "items": {
     "candy": "סוכריה",
