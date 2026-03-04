@@ -43,23 +43,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectLevel, onViewBad
 
         {([1, 2, 3, 4] as LevelId[]).map((levelId) => {
           const level = levels[levelId];
-          const isLocked = level.status === 'locked';
           const isCompleted = level.status === 'completed';
           const isInProgress = level.status === 'in_progress';
 
           return (
             <TouchableOpacity
               key={levelId}
-              style={[styles.levelCard, isLocked && styles.lockedCard]}
-              onPress={() => !isLocked && onSelectLevel(levelId)}
-              disabled={isLocked}
+              style={styles.levelCard}
+              onPress={() => onSelectLevel(levelId)}
             >
               <Text style={styles.levelEmoji}>{levelEmojis[levelId]}</Text>
               <View style={styles.levelInfo}>
-                <Text style={[styles.levelTitle, isLocked && styles.lockedText]}>
+                <Text style={styles.levelTitle}>
                   {t(`levels.level${levelId}.title`)}
                 </Text>
-                <Text style={[styles.levelSubtitle, isLocked && styles.lockedText]}>
+                <Text style={styles.levelSubtitle}>
                   {t(`levels.level${levelId}.subtitle`)}
                 </Text>
               </View>
@@ -69,11 +67,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectLevel, onViewBad
                 isInProgress && styles.inProgressBadge,
               ]}>
                 <Text style={styles.statusText}>
-                  {isLocked
-                    ? t('home.locked')
-                    : isCompleted
+                  {isCompleted
                     ? t('home.completed')
-                    : t('home.unlocked')}
+                    : isInProgress
+                    ? t('home.inProgress')
+                    : t('home.play')}
                 </Text>
               </View>
             </TouchableOpacity>
