@@ -1,0 +1,177 @@
+{
+  "common": {
+    "appName": "Shekel Life",
+    "tagline": "Learn money. Live smart.",
+    "currency": "₪",
+    "save": "Save",
+    "spend": "Spend",
+    "budget": "Budget",
+    "balance": "Balance",
+    "total": "Total",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "settings": "Settings",
+    "language": "Language",
+    "english": "English",
+    "hebrew": "עברית",
+    "boy": "Boy",
+    "girl": "Girl",
+    "chooseCharacter": "Choose Your Character",
+    "startPlaying": "Start Playing",
+    "continueGame": "Continue Game",
+    "newGame": "New Game",
+    "shabbat": "Shabbat",
+    "yomTov": "Yom Tov",
+    "noSpendDay": "No-Spend Day",
+    "week": "Week",
+    "month": "Month"
+  },
+  "branding": {
+    "psa": "Philip Stein & Associates",
+    "blueWhite": "Blue & White Finance",
+    "cobranded": "A PSA & Blue & White Finance Game"
+  },
+  "levels": {
+    "level1": {
+      "title": "The Little Saver",
+      "subtitle": "Ages 6–8",
+      "description": "Learn to save and spend wisely at the makolet!",
+      "boyName": "Yoni",
+      "girlName": "Yael",
+      "intro": "Welcome! Savta and Saba gave you some shekalim. Let's go shopping at the makolet — but choose wisely! Candy is yummy but it's gone fast. Save up for something bigger!"
+    },
+    "level2": {
+      "title": "The School Year Budget",
+      "subtitle": "Ages 9–11",
+      "description": "Manage your weekly pocket money through the school year.",
+      "boyName": "Dov",
+      "girlName": "Shira",
+      "intro": "You get weekly pocket money from your parents. But there are tiyulim, school supplies, and Purim is coming! Can you budget wisely?"
+    },
+    "level3": {
+      "title": "The Part-Time Worker",
+      "subtitle": "Ages 12–14",
+      "description": "Earn your own money and learn to manage it.",
+      "boyName": "Ari",
+      "girlName": "Michal",
+      "intro": "You've got your first job! Whether it's babysitting, tutoring, or delivering — this money is yours to manage. Plan for yom tov weeks when you can't work."
+    },
+    "level4": {
+      "title": "The Road to Independence",
+      "subtitle": "Ages 15–17",
+      "description": "Manage a bank account, invest, and prepare for the future.",
+      "boyName": "Noam",
+      "girlName": "Noa",
+      "intro": "You're almost independent! Open a bank account, learn about investing, and plan for your gap year or army prep. Big decisions start now."
+    }
+  },
+  "shopping": {
+    "makolet": "Makolet",
+    "basket": "My Basket",
+    "shelf": "Shelf",
+    "goalShelf": "Goal Shelf",
+    "addToBasket": "Add to Basket",
+    "removeFromBasket": "Remove",
+    "checkout": "Checkout",
+    "emptyBasket": "Your basket is empty",
+    "budgetRemaining": "Budget Remaining",
+    "itemAdded": "Added to basket!",
+    "cantAfford": "You don't have enough shekalim for this!",
+    "savingGoal": "Saving Goal",
+    "savingProgress": "{{current}} of {{goal}} saved",
+    "setSavingGoal": "Set a Saving Goal",
+    "goalReached": "You reached your goal! 🎉",
+    "shabbatClosed": "The makolet is closed for Shabbat. Plan your shopping for tomorrow!",
+    "yomTovClosed": "The makolet is closed for Yom Tov."
+  },
+  "items": {
+    "candy": "Candy",
+    "chocolate": "Chocolate Bar",
+    "chips": "Bag of Chips",
+    "iceCream": "Ice Cream",
+    "juice": "Juice Box",
+    "apple": "Apple",
+    "banana": "Banana",
+    "cookie": "Cookie Pack",
+    "toy": "Toy Car",
+    "doll": "Doll",
+    "puzzle": "Puzzle",
+    "book": "Story Book",
+    "crayons": "Crayon Set",
+    "stickers": "Sticker Pack",
+    "ball": "Bouncy Ball",
+    "boardGame": "Board Game",
+    "lego": "LEGO Set",
+    "stuffedAnimal": "Stuffed Animal"
+  },
+  "budget": {
+    "income": "Income",
+    "expenses": "Expenses",
+    "savings": "Savings",
+    "maaser": "Maaser",
+    "needs": "Needs",
+    "wants": "Wants",
+    "remaining": "Remaining",
+    "weeklyBudget": "Weekly Budget",
+    "monthlyBudget": "Monthly Budget",
+    "allocate": "Allocate Your Money",
+    "overspent": "You've overspent! You need to cut back.",
+    "wellDone": "Great budgeting! You stayed within your means."
+  },
+  "maaser": {
+    "title": "Maaser (Tzedakah)",
+    "explanation": "Many Jewish families give 10% of their income to tzedakah. Would you like to include this in your budget?",
+    "yes": "Yes, include maaser",
+    "no": "Not right now",
+    "included": "Maaser included in your budget",
+    "amount": "Maaser amount: ₪{{amount}}"
+  },
+  "consequences": {
+    "tiyulMissed": "Oh no! You didn't save enough for the tiyul deposit. Your spot was given to someone else.",
+    "giftCantBuy": "Your friend's birthday is today, but you spent all your money on snacks. You can't buy a gift.",
+    "toyOutOfStock": "You waited too long to save up — the toy you wanted is out of stock!",
+    "noSnacks": "It's Shabbat and you forgot to buy snacks before! No treats this week.",
+    "cantAffordSupplies": "School supplies are due, but you spent your money on wants. Now you need to ask your parents for help.",
+    "reducedIncome": "It's a yom tov week — no work means less money this month. Did you plan ahead?"
+  },
+  "badges": {
+    "firstSave": {
+      "name": "First Save",
+      "description": "Set aside money for the first time without spending it"
+    },
+    "goalGetter": {
+      "name": "Goal Getter",
+      "description": "Reached a savings goal you set at the start of a level"
+    },
+    "tzedakahStar": {
+      "name": "Tzedakah Star",
+      "description": "Voluntarily allocated maaser for three consecutive periods"
+    },
+    "plannerPro": {
+      "name": "Planner Pro",
+      "description": "Successfully navigated a Yom Tov week without going into the red"
+    },
+    "noImpulse": {
+      "name": "No Impulse!",
+      "description": "Chose to save over an impulse buy three times in one level"
+    },
+    "investorBadge": {
+      "name": "Investor Badge",
+      "description": "Completed the full investing module in Level 4"
+    },
+    "shekelLegend": {
+      "name": "Shekel Legend",
+      "description": "Completed all four levels with a positive balance"
+    }
+  },
+  "home": {
+    "welcome": "Welcome to Shekel Life!",
+    "selectLevel": "Choose Your Level",
+    "locked": "Locked",
+    "unlocked": "Play",
+    "completed": "Completed"
+  }
+}

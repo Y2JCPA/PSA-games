@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Shekel Life",
+    "slug": "shekel-life",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/logos/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1a5276",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.psa.shekellife"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a5276"
+      },
+      "package": "com.psa.shekellife"
+    },
+    "web": {
+      "favicon": "./src/assets/logos/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-localization"
+    ]
+  }
+}
