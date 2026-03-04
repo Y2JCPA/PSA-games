@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store';
 import { getDayName } from '../../mechanics/shabbatCalendar';
@@ -9,7 +9,7 @@ import { GoalPicker } from './GoalPicker';
 import { ChoreBoard } from '../../components/ChoreBoard';
 import { colors, fonts, spacing } from '../../theme';
 
-type Level1View = 'intro' | 'characterSelect' | 'chores' | 'shop' | 'goalPicker';
+type Level1View = 'intro' | 'characterSelect' | 'howItWorks' | 'chores' | 'shop' | 'goalPicker';
 
 export const Level1Screen: React.FC = () => {
   const { t } = useTranslation();
@@ -54,7 +54,63 @@ export const Level1Screen: React.FC = () => {
   }
 
   if (view === 'characterSelect') {
-    return <CharacterSelect onSelect={() => setView('chores')} />;
+    return <CharacterSelect onSelect={() => setView('howItWorks')} />;
+  }
+
+  if (view === 'howItWorks') {
+    const charName = level.gender === 'girl' ? t('levels.level1.girlName') : t('levels.level1.boyName');
+    return (
+      <SafeAreaView style={styles.howContainer}>
+        <ScrollView contentContainerStyle={styles.howScroll}>
+          <Text style={styles.howTitle}>{t('howItWorks.title')}</Text>
+          <Text style={styles.howGreeting}>
+            {t('howItWorks.greeting', { name: charName })}
+          </Text>
+
+          <View style={styles.stepCard}>
+            <Text style={styles.stepEmoji}>🏠</Text>
+            <Text style={styles.stepNumber}>{t('howItWorks.step1title')}</Text>
+            <Text style={styles.stepText}>{t('howItWorks.step1text')}</Text>
+          </View>
+
+          <View style={styles.stepArrow}><Text style={styles.arrowText}>⬇️</Text></View>
+
+          <View style={styles.stepCard}>
+            <Text style={styles.stepEmoji}>💰</Text>
+            <Text style={styles.stepNumber}>{t('howItWorks.step2title')}</Text>
+            <Text style={styles.stepText}>{t('howItWorks.step2text')}</Text>
+          </View>
+
+          <View style={styles.stepArrow}><Text style={styles.arrowText}>⬇️</Text></View>
+
+          <View style={styles.stepCard}>
+            <Text style={styles.stepEmoji}>🛒</Text>
+            <Text style={styles.stepNumber}>{t('howItWorks.step3title')}</Text>
+            <Text style={styles.stepText}>{t('howItWorks.step3text')}</Text>
+          </View>
+
+          <View style={styles.stepArrow}><Text style={styles.arrowText}>⬇️</Text></View>
+
+          <View style={styles.stepCard}>
+            <Text style={styles.stepEmoji}>🎯</Text>
+            <Text style={styles.stepNumber}>{t('howItWorks.step4title')}</Text>
+            <Text style={styles.stepText}>{t('howItWorks.step4text')}</Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipEmoji}>💡</Text>
+            <Text style={styles.tipText}>{t('howItWorks.tip')}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.letsGoButton}
+            onPress={() => setView('chores')}
+          >
+            <Text style={styles.letsGoText}>{t('howItWorks.letsGo')} 🎉</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
   }
 
   if (view === 'chores') {
@@ -126,5 +182,97 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fonts.sizes.lg,
     fontWeight: '700',
+  },
+  // How It Works styles
+  howContainer: {
+    flex: 1,
+    backgroundColor: colors.offWhite,
+  },
+  howScroll: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+    alignItems: 'center',
+  },
+  howTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.primary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  howGreeting: {
+    fontSize: fonts.sizes.lg,
+    color: colors.darkGray,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 26,
+  },
+  stepCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.lg,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  stepEmoji: {
+    fontSize: 40,
+    marginBottom: spacing.xs,
+  },
+  stepNumber: {
+    fontSize: fonts.sizes.lg,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  stepText: {
+    fontSize: fonts.sizes.md,
+    color: colors.darkGray,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  stepArrow: {
+    paddingVertical: spacing.xs,
+  },
+  arrowText: {
+    fontSize: 24,
+  },
+  tipBox: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 16,
+    padding: spacing.lg,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    borderWidth: 2,
+    borderColor: '#FFD54F',
+  },
+  tipEmoji: {
+    fontSize: 32,
+    marginBottom: spacing.xs,
+  },
+  tipText: {
+    fontSize: fonts.sizes.md,
+    color: colors.darkGray,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  letsGoButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xxl,
+    marginTop: spacing.xl,
+  },
+  letsGoText: {
+    color: colors.white,
+    fontSize: fonts.sizes.xl,
+    fontWeight: '800',
   },
 });

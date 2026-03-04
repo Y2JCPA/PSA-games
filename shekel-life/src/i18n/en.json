@@ -170,6 +170,20 @@
       "description": "Completed all four levels with a positive balance"
     }
   },
+  "howItWorks": {
+    "title": "How It Works",
+    "greeting": "Nice to meet you, {{name}}! Here's how you'll earn and spend your shekalim:",
+    "step1title": "Step 1: Do Chores",
+    "step1text": "Each day you'll see a chore board. Pick up to 3 chores — easy ones pay ₪1, hard ones pay up to ₪4!",
+    "step2title": "Step 2: Get Paid",
+    "step2text": "Finish your chores and collect your shekalim. The harder you work, the more you earn!",
+    "step3title": "Step 3: Visit the Makolet",
+    "step3text": "Head to the shop! You can buy snacks (yummy but gone fast) or save up for bigger things like toys and games.",
+    "step4title": "Step 4: Save for Goals",
+    "step4text": "Set a saving goal for something special. It might take a few days of hard work — but that's what makes it worth it!",
+    "tip": "Remember: you don't have to spend everything you earn. Sometimes the smartest move is to save for tomorrow!",
+    "letsGo": "Let's Go"
+  },
   "chores": {
     "title": "Chore Board",
     "instructions": "Pick up to {{max}} chores to earn shekalim today!",
