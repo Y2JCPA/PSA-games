@@ -259,7 +259,15 @@
     "brokePen": "Your fancy pen broke — need a replacement",
     "purimCostume": "Purim is coming — time for an epic costume!",
     "lostLunch": "Left your lunch on the bus — buying today",
-    "rainGear": "Rain season! You need a new umbrella"
+    "rainGear": "Rain season! You need a new umbrella",
+    "newBackpack": "Your backpack strap broke — you need a new one",
+    "gymShoes": "Gym class requires proper sports shoes",
+    "videoGame": "The new game EVERYONE is playing just came out!",
+    "sneakers": "The coolest limited-edition sneakers at the mall!",
+    "bowlingTrip": "Bowling night with your whole crew!",
+    "escapeRoom": "Escape room for your friend group — epic team challenge!",
+    "brokenPhone": "You dropped your phone and the screen shattered!",
+    "dentist": "Emergency dentist visit — cracked tooth from candy"
   },
   "level2Events": {
     "supplies": "📝 School supplies are running low. It'll cost ₪{{amount}} to stock up.",

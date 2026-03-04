@@ -34,37 +34,45 @@ interface WeeklyChoice {
 
 // ─── Choice Pools ────────────────────────────────────────────
 const NEED_CHOICES: WeeklyChoice[] = [
-  { id: 'notebooks', textKey: 'notebooks', emoji: '📓', cost: 15, category: 'need', happinessEffect: 5, friendEffect: 0 },
-  { id: 'busFare', textKey: 'busFare', emoji: '🚌', cost: 20, category: 'need', happinessEffect: 0, friendEffect: 0 },
-  { id: 'lunchBox', textKey: 'lunchBox', emoji: '🥪', cost: 12, category: 'need', happinessEffect: 5, friendEffect: 0 },
-  { id: 'artSupplies', textKey: 'artSupplies', emoji: '🎨', cost: 18, category: 'need', happinessEffect: 8, friendEffect: 0 },
-  { id: 'waterBottle', textKey: 'waterBottle', emoji: '🧴', cost: 10, category: 'need', happinessEffect: 3, friendEffect: 0 },
+  { id: 'notebooks', textKey: 'notebooks', emoji: '📓', cost: 25, category: 'need', happinessEffect: 5, friendEffect: 0 },
+  { id: 'busFare', textKey: 'busFare', emoji: '🚌', cost: 30, category: 'need', happinessEffect: 0, friendEffect: 0 },
+  { id: 'lunchBox', textKey: 'lunchBox', emoji: '🥪', cost: 20, category: 'need', happinessEffect: 5, friendEffect: 0 },
+  { id: 'artSupplies', textKey: 'artSupplies', emoji: '🎨', cost: 35, category: 'need', happinessEffect: 8, friendEffect: 0 },
+  { id: 'waterBottle', textKey: 'waterBottle', emoji: '🧴', cost: 18, category: 'need', happinessEffect: 3, friendEffect: 0 },
+  { id: 'newBackpack', textKey: 'newBackpack', emoji: '🎒', cost: 75, category: 'need', happinessEffect: 12, friendEffect: 5 },
+  { id: 'gymShoes', textKey: 'gymShoes', emoji: '👟', cost: 60, category: 'need', happinessEffect: 10, friendEffect: 3 },
 ];
 
 const WANT_CHOICES: WeeklyChoice[] = [
-  { id: 'candy', textKey: 'candy', emoji: '🍬', cost: 8, category: 'want', happinessEffect: 10, friendEffect: 5 },
-  { id: 'stickerPack', textKey: 'stickerPack', emoji: '⭐', cost: 12, category: 'want', happinessEffect: 12, friendEffect: 3 },
-  { id: 'iceCream', textKey: 'iceCream', emoji: '🍦', cost: 10, category: 'want', happinessEffect: 15, friendEffect: 5 },
-  { id: 'comicBook', textKey: 'comicBook', emoji: '📚', cost: 20, category: 'want', happinessEffect: 12, friendEffect: 0 },
-  { id: 'coolPencilCase', textKey: 'coolPencilCase', emoji: '✏️', cost: 25, category: 'want', happinessEffect: 10, friendEffect: 8 },
-  { id: 'toyFigure', textKey: 'toyFigure', emoji: '🤖', cost: 30, category: 'want', happinessEffect: 18, friendEffect: 5 },
+  { id: 'candy', textKey: 'candy', emoji: '🍬', cost: 15, category: 'want', happinessEffect: 10, friendEffect: 5 },
+  { id: 'stickerPack', textKey: 'stickerPack', emoji: '⭐', cost: 20, category: 'want', happinessEffect: 12, friendEffect: 3 },
+  { id: 'iceCream', textKey: 'iceCream', emoji: '🍦', cost: 18, category: 'want', happinessEffect: 15, friendEffect: 5 },
+  { id: 'comicBook', textKey: 'comicBook', emoji: '📚', cost: 35, category: 'want', happinessEffect: 12, friendEffect: 0 },
+  { id: 'coolPencilCase', textKey: 'coolPencilCase', emoji: '✏️', cost: 45, category: 'want', happinessEffect: 10, friendEffect: 8 },
+  { id: 'toyFigure', textKey: 'toyFigure', emoji: '🤖', cost: 55, category: 'want', happinessEffect: 18, friendEffect: 5 },
+  { id: 'videoGame', textKey: 'videoGame', emoji: '🎮', cost: 90, category: 'want', happinessEffect: 25, friendEffect: 8 },
+  { id: 'sneakers', textKey: 'sneakers', emoji: '👑', cost: 120, category: 'want', happinessEffect: 22, friendEffect: 15 },
 ];
 
 const SOCIAL_CHOICES: WeeklyChoice[] = [
-  { id: 'pizzaFriends', textKey: 'pizzaFriends', emoji: '🍕', cost: 25, category: 'social', happinessEffect: 15, friendEffect: 15 },
-  { id: 'birthdayGift', textKey: 'birthdayGift', emoji: '🎁', cost: 30, category: 'social', happinessEffect: 5, friendEffect: 20 },
+  { id: 'pizzaFriends', textKey: 'pizzaFriends', emoji: '🍕', cost: 40, category: 'social', happinessEffect: 15, friendEffect: 15 },
+  { id: 'birthdayGift', textKey: 'birthdayGift', emoji: '🎁', cost: 55, category: 'social', happinessEffect: 5, friendEffect: 20 },
   { id: 'shareSeat', textKey: 'shareSeat', emoji: '🎪', cost: 0, category: 'social', happinessEffect: 10, friendEffect: 10 },
-  { id: 'tiyulDeposit', textKey: 'tiyulDeposit', emoji: '🏕️', cost: 35, category: 'social', happinessEffect: 20, friendEffect: 15 },
-  { id: 'classTreat', textKey: 'classTreat', emoji: '🧁', cost: 15, category: 'social', happinessEffect: 8, friendEffect: 12 },
+  { id: 'tiyulDeposit', textKey: 'tiyulDeposit', emoji: '🏕️', cost: 65, category: 'social', happinessEffect: 20, friendEffect: 15 },
+  { id: 'classTreat', textKey: 'classTreat', emoji: '🧁', cost: 30, category: 'social', happinessEffect: 8, friendEffect: 12 },
+  { id: 'bowlingTrip', textKey: 'bowlingTrip', emoji: '🎳', cost: 50, category: 'social', happinessEffect: 18, friendEffect: 18 },
+  { id: 'escapeRoom', textKey: 'escapeRoom', emoji: '🔐', cost: 80, category: 'social', happinessEffect: 22, friendEffect: 20 },
 ];
 
 const SURPRISE_CHOICES: WeeklyChoice[] = [
   { id: 'chanukahGelt', textKey: 'chanukahGelt', emoji: '🕎', cost: -40, category: 'surprise', happinessEffect: 20, friendEffect: 5 },
-  { id: 'foundMoney', textKey: 'foundMoney', emoji: '💵', cost: -10, category: 'surprise', happinessEffect: 10, friendEffect: 0 },
-  { id: 'brokePen', textKey: 'brokePen', emoji: '🖊️', cost: 15, category: 'surprise', happinessEffect: -10, friendEffect: 0 },
-  { id: 'purimCostume', textKey: 'purimCostume', emoji: '🎭', cost: 40, category: 'surprise', happinessEffect: 15, friendEffect: 10 },
-  { id: 'lostLunch', textKey: 'lostLunch', emoji: '😤', cost: 15, category: 'surprise', happinessEffect: -12, friendEffect: 0 },
-  { id: 'rainGear', textKey: 'rainGear', emoji: '🌧️', cost: 20, category: 'surprise', happinessEffect: -5, friendEffect: 0 },
+  { id: 'foundMoney', textKey: 'foundMoney', emoji: '💵', cost: -15, category: 'surprise', happinessEffect: 10, friendEffect: 0 },
+  { id: 'brokePen', textKey: 'brokePen', emoji: '🖊️', cost: 25, category: 'surprise', happinessEffect: -10, friendEffect: 0 },
+  { id: 'purimCostume', textKey: 'purimCostume', emoji: '🎭', cost: 70, category: 'surprise', happinessEffect: 15, friendEffect: 10 },
+  { id: 'lostLunch', textKey: 'lostLunch', emoji: '😤', cost: 25, category: 'surprise', happinessEffect: -12, friendEffect: 0 },
+  { id: 'rainGear', textKey: 'rainGear', emoji: '🌧️', cost: 35, category: 'surprise', happinessEffect: -5, friendEffect: 0 },
+  { id: 'brokenPhone', textKey: 'brokenPhone', emoji: '📱💥', cost: 100, category: 'surprise', happinessEffect: -20, friendEffect: -5 },
+  { id: 'dentist', textKey: 'dentist', emoji: '🦷', cost: 45, category: 'surprise', happinessEffect: -15, friendEffect: 0 },
 ];
 
 const TOTAL_WEEKS = 8;
