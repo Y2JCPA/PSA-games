@@ -1,755 +1,897 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  Modal,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store';
-import { BudgetDashboard } from '../../components/BudgetDashboard';
-import { ConsequenceModal } from '../../components/ConsequenceModal';
 import { MaaserModal } from '../../components/MaaserModal';
 import { LevelNavBar } from '../../components/LevelNavBar';
 import { colors, fonts, spacing, borderRadius } from '../../theme';
 
-type Level3View =
-  | 'intro'
-  | 'characterSelect'
-  | 'howItWorks'
-  | 'jobSelect'
-  | 'goalSelect'
-  | 'workCalendar'
-  | 'budgetAllocate'
-  | 'monthlyEvents'
-  | 'monthSummary'
-  | 'gameWin'
-  | 'gameOver';
-
+// ─── Types ───────────────────────────────────────────────────
 type JobId = 'babysitting' | 'tutoring' | 'delivery';
+type Level3View =
+  | 'intro' | 'characterSelect' | 'howItWorks' | 'jobSelect'
+  | 'savingsGoal' | 'shiftOffers' | 'monthEvents' | 'phoneBill'
+  | 'monthSummary' | 'gameWin' | 'gameOver';
 
-interface JobDef {
+interface Job {
   id: JobId;
-  payPerSession: number;
-  maxSessionsPerWeek: number;
+  basePayPerShift: number;
   emoji: string;
 }
 
-interface SavingsGoalOption {
+interface ShiftOffer {
   id: string;
-  nameKey: string;
-  target: number;
-}
-
-interface MonthlyBudget {
-  phone: number;
-  transport: number;
-  food: number;
-  savings: number;
-  maaser: number;
-  fun: number;
+  descKey: string;
+  pay: number;
+  energyCost: number;
+  socialCost: number;    // positive = social sacrifice
+  socialGain: number;    // some shifts are social (tutoring friend)
+  conflictKey?: string;  // what you miss if you take it
 }
 
 interface MonthEvent {
-  id: 'phoneCracked' | 'barMitzvah' | 'yomTovWeek' | 'bonusShift' | 'mallSale' | 'bonusPayment';
-  type: 'cost' | 'bonus' | 'choice' | 'info';
-  amount: number;
-  descriptionKey: string;
-  consequenceKey?: string;
+  id: string;
+  textKey: string;
+  emoji: string;
+  choices: EventChoice[];
 }
 
-const TOTAL_MONTHS = 4;
-const WEEKS_PER_MONTH = 4;
-const WORK_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'] as const;
+interface EventChoice {
+  labelKey: string;
+  cost: number;           // negative = you receive money
+  socialEffect: number;
+  energyEffect: number;
+  debtIfCantAfford?: boolean;
+  isInstallment?: { monthly: number; total: number; months: number };
+  lendingRisk?: boolean;  // 70% payback
+}
 
-const JOBS: Record<JobId, JobDef> = {
-  babysitting: { id: 'babysitting', payPerSession: 40, maxSessionsPerWeek: 3, emoji: '🍼' },
-  tutoring: { id: 'tutoring', payPerSession: 50, maxSessionsPerWeek: 2, emoji: '📖' },
-  delivery: { id: 'delivery', payPerSession: 30, maxSessionsPerWeek: 4, emoji: '🛵' },
-};
+interface SavingsGoalOption {
+  id: string; nameKey: string; amount: number; emoji: string;
+}
 
-const GOALS: SavingsGoalOption[] = [
-  { id: 'newPhone', nameKey: 'level3SavingsGoals.newPhone', target: 800 },
-  { id: 'trip', nameKey: 'level3SavingsGoals.trip', target: 500 },
-  { id: 'bike', nameKey: 'level3SavingsGoals.bike', target: 650 },
+// ─── Constants ───────────────────────────────────────────────
+const JOBS: Job[] = [
+  { id: 'babysitting', basePayPerShift: 45, emoji: '🍼' },
+  { id: 'tutoring', basePayPerShift: 55, emoji: '📖' },
+  { id: 'delivery', basePayPerShift: 35, emoji: '🛵' },
 ];
 
-const defaultWorkPlan = () => Array.from({ length: WEEKS_PER_MONTH }, () => Array(5).fill(false));
+const SAVINGS_GOALS: SavingsGoalOption[] = [
+  { id: 'newPhone', nameKey: 'newPhone', amount: 900, emoji: '📱' },
+  { id: 'trip', nameKey: 'trip', amount: 600, emoji: '✈️' },
+  { id: 'laptop', nameKey: 'laptop', amount: 1400, emoji: '💻' },
+  { id: 'bike', nameKey: 'bike', amount: 750, emoji: '🚲' },
+];
 
-interface Level3Props {
-  onHome: () => void;
-  onRestart: () => void;
+const PHONE_BILL = 50;
+const TOTAL_MONTHS = 6;
+const INTEREST_RATE = 0.02;       // 2% monthly on savings
+const DEBT_INTEREST = 0.10;       // 10% on parent loans
+const INFLATION_MONTH = 3;        // Prices go up in month 3
+const INFLATION_RATE = 0.15;      // 15%
+const EMERGENCY_FUND_THRESHOLD = 200;
+
+// ─── Shift Generation ────────────────────────────────────────
+function generateShiftOffers(month: number, job: Job, hasPhone: boolean, inflated: boolean): ShiftOffer[] {
+  const payMult = inflated ? 1.0 : 1.0; // income doesn't rise with inflation
+  const isYomTov = month === 2 || month === 5;
+
+  const allShifts: ShiftOffer[] = [
+    { id: 'evening_sit', descKey: 'eveningSit', pay: job.basePayPerShift, energyCost: 15, socialCost: 10, socialGain: 0, conflictKey: 'missBowling' },
+    { id: 'weekend_gig', descKey: 'weekendGig', pay: job.basePayPerShift + 15, energyCost: 20, socialCost: 15, socialGain: 0, conflictKey: 'missFriends' },
+    { id: 'double_shift', descKey: 'doubleShift', pay: job.basePayPerShift * 2, energyCost: 35, socialCost: 5, socialGain: 0 },
+    { id: 'friend_tutor', descKey: 'friendTutor', pay: job.basePayPerShift - 10, energyCost: 10, socialCost: 0, socialGain: 12 },
+    { id: 'rush_delivery', descKey: 'rushDelivery', pay: job.basePayPerShift + 20, energyCost: 25, socialCost: 0, socialGain: 0 },
+    { id: 'easy_gig', descKey: 'easyGig', pay: Math.round(job.basePayPerShift * 0.7), energyCost: 5, socialCost: 0, socialGain: 0 },
+    { id: 'group_job', descKey: 'groupJob', pay: job.basePayPerShift, energyCost: 12, socialCost: 0, socialGain: 15 },
+    { id: 'late_night', descKey: 'lateNight', pay: job.basePayPerShift + 25, energyCost: 30, socialCost: 20, socialGain: 0, conflictKey: 'missSleep' },
+  ];
+
+  if (!hasPhone) {
+    // Can't get called for some shifts
+    const available = allShifts.filter(s => ['easy_gig', 'friend_tutor', 'group_job'].includes(s.id));
+    return available.slice(0, 2);
+  }
+
+  const shuffled = allShifts.sort(() => Math.random() - 0.5);
+  const count = isYomTov ? 2 : 4; // Fewer shifts on yom tov months
+  return shuffled.slice(0, count);
 }
+
+// ─── Event Generation ────────────────────────────────────────
+function generateMonthEvents(month: number, inflated: boolean, hasMaaser: boolean, consecutiveMaaser: number): MonthEvent[] {
+  const priceAdj = inflated ? 1.15 : 1.0;
+  const events: MonthEvent[] = [];
+
+  const allEvents: MonthEvent[] = [
+    {
+      id: 'phone_cracked', textKey: 'phoneCracked', emoji: '📱💥',
+      choices: [
+        { labelKey: 'fixPhone', cost: Math.round(200 * priceAdj), socialEffect: 0, energyEffect: 0 },
+        { labelKey: 'liveCracked', cost: 0, socialEffect: -5, energyEffect: -5 },
+      ],
+    },
+    {
+      id: 'jordans', textKey: 'jordans', emoji: '👟',
+      choices: [
+        { labelKey: 'buyJordans', cost: Math.round(400 * priceAdj), socialEffect: 15, energyEffect: 0 },
+        { labelKey: 'buyJordansInstall', cost: 0, socialEffect: 15, energyEffect: 0, isInstallment: { monthly: 50, total: Math.round(500 * priceAdj), months: 10 } },
+        { labelKey: 'skipJordans', cost: 0, socialEffect: -8, energyEffect: 0 },
+      ],
+    },
+    {
+      id: 'friend_loan', textKey: 'friendLoan', emoji: '🤝',
+      choices: [
+        { labelKey: 'lendFriend', cost: 100, socialEffect: 15, energyEffect: 0, lendingRisk: true },
+        { labelKey: 'declineLend', cost: 0, socialEffect: -10, energyEffect: 0 },
+      ],
+    },
+    {
+      id: 'bar_mitzvah', textKey: 'barMitzvah', emoji: '🎉',
+      choices: [
+        { labelKey: 'niceGift', cost: Math.round(80 * priceAdj), socialEffect: 18, energyEffect: 0 },
+        { labelKey: 'cheapGift', cost: Math.round(30 * priceAdj), socialEffect: 5, energyEffect: 0 },
+        { labelKey: 'skipEvent', cost: 0, socialEffect: -15, energyEffect: 5 },
+      ],
+    },
+    {
+      id: 'concert', textKey: 'concert', emoji: '🎵',
+      choices: [
+        { labelKey: 'buyConcert', cost: Math.round(150 * priceAdj), socialEffect: 20, energyEffect: -10 },
+        { labelKey: 'skipConcert', cost: 0, socialEffect: -5, energyEffect: 5 },
+      ],
+    },
+    {
+      id: 'school_trip', textKey: 'schoolTrip', emoji: '🏕️',
+      choices: [
+        { labelKey: 'payTrip', cost: Math.round(120 * priceAdj), socialEffect: 18, energyEffect: -5 },
+        { labelKey: 'skipTrip', cost: 0, socialEffect: -20, energyEffect: 5 },
+      ],
+    },
+    {
+      id: 'falafel_inflation', textKey: 'falafelInflation', emoji: '🧆',
+      choices: [
+        { labelKey: 'buyFalafel', cost: Math.round(25 * priceAdj), socialEffect: 5, energyEffect: 5 },
+        { labelKey: 'bringLunch', cost: 0, socialEffect: -3, energyEffect: 0 },
+      ],
+    },
+    {
+      id: 'emergency_dentist', textKey: 'emergencyDentist', emoji: '🦷',
+      choices: [
+        { labelKey: 'payDentist', cost: Math.round(180 * priceAdj), socialEffect: 0, energyEffect: 5, debtIfCantAfford: true },
+      ],
+    },
+    {
+      id: 'broken_bike', textKey: 'brokenBike', emoji: '🚲💥',
+      choices: [
+        { labelKey: 'fixBike', cost: Math.round(90 * priceAdj), socialEffect: 0, energyEffect: 10 },
+        { labelKey: 'walkEverywhere', cost: 0, socialEffect: 0, energyEffect: -15 },
+      ],
+    },
+    {
+      id: 'sale_temptation', textKey: 'saleTemptation', emoji: '🛍️',
+      choices: [
+        { labelKey: 'buySale', cost: Math.round(120 * priceAdj), socialEffect: 5, energyEffect: 0 },
+        { labelKey: 'resistSale', cost: 0, socialEffect: 0, energyEffect: 0 },
+      ],
+    },
+  ];
+
+  // Pick 2-3 events per month
+  const shuffled = allEvents.sort(() => Math.random() - 0.5);
+  const count = month >= 4 ? 3 : 2; // Later months are harder
+  events.push(...shuffled.slice(0, count));
+
+  // Inflation announcement in month 3
+  if (month === INFLATION_MONTH) {
+    events.unshift({
+      id: 'inflation_notice', textKey: 'inflationNotice', emoji: '📈',
+      choices: [{ labelKey: 'understood', cost: 0, socialEffect: 0, energyEffect: -5 }],
+    });
+  }
+
+  // Maaser reward in month 3 if consistent
+  if (month === 3 && hasMaaser && consecutiveMaaser >= 2) {
+    events.push({
+      id: 'maaser_reward', textKey: 'maaserReward', emoji: '✨',
+      choices: [{ labelKey: 'acceptReward', cost: -80, socialEffect: 10, energyEffect: 5 }],
+    });
+  }
+
+  // Yom tov events
+  if (month === 2 || month === 5) {
+    events.unshift({
+      id: 'yom_tov', textKey: 'yomTov', emoji: '🕍',
+      choices: [{ labelKey: 'enjoyHoliday', cost: 0, socialEffect: 10, energyEffect: 10 }],
+    });
+  }
+
+  return events;
+}
+
+function getMoodFace(v: number): string {
+  if (v >= 80) return '😄'; if (v >= 60) return '🙂'; if (v >= 40) return '😐'; if (v >= 20) return '😟'; return '😢';
+}
+function getEnergyFace(v: number): string {
+  if (v >= 80) return '⚡'; if (v >= 60) return '🔋'; if (v >= 40) return '🪫'; if (v >= 20) return '😴'; return '💀';
+}
+function getSocialFace(v: number): string {
+  if (v >= 80) return '👫'; if (v >= 60) return '🤝'; if (v >= 40) return '👋'; if (v >= 20) return '😶'; return '😔';
+}
+function getStarRating(v: number): string {
+  if (v >= 80) return '⭐⭐⭐'; if (v >= 50) return '⭐⭐'; if (v >= 20) return '⭐'; return '—';
+}
+
+// ─── Component ───────────────────────────────────────────────
+interface Level3Props { onHome: () => void; onRestart: () => void; }
 
 export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
   const { t } = useTranslation();
   const {
-    levels,
-    setGender,
-    startLevel,
-    toggleMaaser,
-    addIncome,
-    spend,
-    addMaaser,
-    addToSavingGoal,
-    setSavingGoal,
-    incrementImpulseResist,
-    advanceWeek,
-    completeLevel,
-    earnBadge,
+    levels, setGender, startLevel, addIncome, spend,
+    toggleMaaser, addMaaser, setSavingGoal, addToSavingGoal,
+    incrementImpulseResist, advanceWeek, completeLevel,
   } = useGameStore();
   const level = levels[3];
 
-  const [view, setView] = useState<Level3View>(level.status === 'in_progress' ? 'workCalendar' : 'intro');
-  const [selectedJob, setSelectedJob] = useState<JobId | null>(null);
+  const [view, setView] = useState<Level3View>(
+    level.status === 'in_progress' ? 'shiftOffers' : 'intro'
+  );
+  const [showMaaser, setShowMaaser] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<SavingsGoalOption | null>(null);
-  const [showMaaserPrompt, setShowMaaserPrompt] = useState(false);
-  const [workPlan, setWorkPlan] = useState<boolean[][]>(defaultWorkPlan());
-  const [monthIncome, setMonthIncome] = useState(0);
-  const [budget, setBudget] = useState<MonthlyBudget>({
-    phone: 50,
-    transport: 40,
-    food: 50,
-    savings: 40,
-    maaser: 0,
-    fun: 20,
-  });
-  const [events, setEvents] = useState<MonthEvent[]>([]);
-  const [eventIndex, setEventIndex] = useState(0);
-  const [consequenceKey, setConsequenceKey] = useState<string | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(1);
+
+  // Meters
+  const [energy, setEnergy] = useState(70);
+  const [social, setSocial] = useState(60);
+
+  // Financial state
+  const [savingsAccount, setSavingsAccount] = useState(0);
+  const [debt, setDebt] = useState(0);
+  const [installmentDebt, setInstallmentDebt] = useState(0);
+  const [installmentMonthly, setInstallmentMonthly] = useState(0);
+  const [installmentRemaining, setInstallmentRemaining] = useState(0);
+  const [hasPhone, setHasPhone] = useState(true);
+  const [inflated, setInflated] = useState(false);
+  const [pendingLoan, setPendingLoan] = useState(0);
+  const [consecutiveMaaser, setConsecutiveMaaser] = useState(0);
+
+  // Month state
+  const [monthShifts, setMonthShifts] = useState<ShiftOffer[]>([]);
+  const [shiftDecisions, setShiftDecisions] = useState<Record<string, boolean>>({});
+  const [monthEvents, setMonthEvents] = useState<MonthEvent[]>([]);
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
   const [monthEarned, setMonthEarned] = useState(0);
   const [monthSpent, setMonthSpent] = useState(0);
-  const [monthSaved, setMonthSaved] = useState(0);
 
-  const currentMonth = level.currentWeek;
-  const currentEvent = events[eventIndex];
+  const job = selectedJob || JOBS[0];
+  const charName = level.gender === 'girl' ? t('levels.level3.girlName') : t('levels.level3.boyName');
 
-  const job = selectedJob ? JOBS[selectedJob] : null;
-  const yomTovWeekIndex = currentMonth === 3 ? 1 : -1; // week #2 in month 3 has no work
+  // ─── Handlers ──────────────────────────────────────────────
+  const startNewMonth = (month: number) => {
+    const inf = month >= INFLATION_MONTH;
+    setInflated(inf);
+    const shifts = generateShiftOffers(month, job, hasPhone, inf);
+    setMonthShifts(shifts);
+    setShiftDecisions({});
+    setMonthEarned(0);
+    setMonthSpent(0);
+    setCurrentEventIndex(0);
+    setView('shiftOffers');
+  };
 
-  const weekSessions = useMemo(
-    () => workPlan.map((week) => week.filter(Boolean).length),
-    [workPlan]
-  );
+  const handleShiftDecision = (shiftId: string, accept: boolean) => {
+    setShiftDecisions(prev => ({ ...prev, [shiftId]: accept }));
+  };
 
-  const calculatedIncome = useMemo(() => {
-    if (!job) return 0;
-    return weekSessions.reduce((sum, sessions) => sum + sessions * job.payPerSession, 0);
-  }, [job, weekSessions]);
+  const handleConfirmShifts = () => {
+    let earned = 0;
+    let eDelta = 5; // Base monthly energy recovery
+    let sDelta = -3; // Base social drift
 
-  const allocated = budget.phone + budget.transport + budget.food + budget.savings + budget.maaser + budget.fun;
-  const unallocated = monthIncome - allocated;
-
-  const updateBudget = (key: keyof MonthlyBudget, delta: number) => {
-    setBudget((prev) => {
-      const next = prev[key] + delta;
-      if (key === 'phone') return prev; // fixed
-      if (next < 0) return prev;
-      const nextTotal = allocated + delta;
-      if (monthIncome > 0 && nextTotal > monthIncome) return prev;
-      return { ...prev, [key]: next };
+    monthShifts.forEach(shift => {
+      if (shiftDecisions[shift.id]) {
+        earned += shift.pay;
+        eDelta -= shift.energyCost;
+        sDelta -= shift.socialCost;
+        sDelta += shift.socialGain;
+      }
     });
-  };
 
-  const toggleWorkDay = (weekIdx: number, dayIdx: number) => {
-    if (!job) return;
-    if (weekIdx === yomTovWeekIndex) return;
+    addIncome(3, earned);
+    setMonthEarned(earned);
+    setEnergy(prev => Math.max(0, Math.min(100, prev + eDelta)));
+    setSocial(prev => Math.max(0, Math.min(100, prev + sDelta)));
 
-    const maxPerWeek = job.maxSessionsPerWeek;
-    const selectedInWeek = workPlan[weekIdx].filter(Boolean).length;
-    const currentlySelected = workPlan[weekIdx][dayIdx];
-
-    if (!currentlySelected && selectedInWeek >= maxPerWeek) return;
-
-    setWorkPlan((prev) => {
-      const next = prev.map((w) => [...w]);
-      next[weekIdx][dayIdx] = !next[weekIdx][dayIdx];
-      return next;
-    });
-  };
-
-  const buildMonthEvents = (month: number): MonthEvent[] => {
-    if (month === 1) {
-      return [{ id: 'barMitzvah', type: 'cost', amount: 80, descriptionKey: 'level3Events.barMitzvah', consequenceKey: 'barMitzvahCantAfford' }];
-    }
-    if (month === 2) {
-      return [{ id: 'phoneCracked', type: 'choice', amount: 200, descriptionKey: 'level3Events.phoneCracked', consequenceKey: 'phoneCantAfford' }];
-    }
-    if (month === 3) {
-      return [
-        { id: 'yomTovWeek', type: 'info', amount: 0, descriptionKey: 'level3Events.yomTovWeek' },
-        { id: 'bonusShift', type: 'choice', amount: job ? job.payPerSession : 40, descriptionKey: 'level3Events.bonusShift' },
-      ];
-    }
-    return [
-      { id: 'mallSale', type: 'choice', amount: 120, descriptionKey: 'level3Events.mallSale' },
-      { id: 'bonusPayment', type: 'bonus', amount: 40, descriptionKey: 'level3Events.bonusPayment' },
-    ];
-  };
-
-  const startMonthBudget = () => {
-    const income = calculatedIncome;
-    setMonthIncome(income);
-    const maaserDefault = level.maaserEnabled ? Math.round(income * 0.1) : 0;
-    const afterFixed = Math.max(0, income - 50 - maaserDefault);
-
-    setBudget({
-      phone: 50,
-      transport: Math.min(40, afterFixed),
-      food: Math.min(50, Math.max(0, afterFixed - 40)),
-      savings: Math.min(40, Math.max(0, afterFixed - 90)),
-      maaser: maaserDefault,
-      fun: Math.max(0, Math.min(30, afterFixed - 130)),
-    });
-    setView('budgetAllocate');
-  };
-
-  const confirmMonthlyBudget = () => {
-    if (monthIncome < 50) return;
-    if (allocated > monthIncome) return;
-
-    addIncome(3, monthIncome);
-    let spent = 0;
-    let saved = 0;
-
-    if (budget.phone > 0 && spend(3, budget.phone)) spent += budget.phone;
-    if (budget.transport > 0 && spend(3, budget.transport)) spent += budget.transport;
-    if (budget.food > 0 && spend(3, budget.food)) spent += budget.food;
-    if (budget.fun > 0 && spend(3, budget.fun)) spent += budget.fun;
-
-    if (budget.savings > 0) {
-      addToSavingGoal(3, budget.savings);
-      saved += budget.savings;
+    // Apply savings interest
+    if (savingsAccount > 0) {
+      const interest = Math.round(savingsAccount * INTEREST_RATE);
+      setSavingsAccount(prev => prev + interest);
     }
 
-    if (level.maaserEnabled && budget.maaser > 0) {
-      addMaaser(3, budget.maaser);
-      spent += budget.maaser;
+    // Apply debt interest
+    if (debt > 0) {
+      setDebt(prev => Math.round(prev * (1 + DEBT_INTEREST)));
     }
 
-    setMonthEarned(monthIncome);
-    setMonthSpent(spent);
-    setMonthSaved(saved);
-
-    setEvents(buildMonthEvents(currentMonth));
-    setEventIndex(0);
-    setView('monthlyEvents');
-  };
-
-  const nextEvent = () => {
-    if (eventIndex + 1 >= events.length) {
-      setView('monthSummary');
-      return;
+    // Resolve pending loan (70% payback)
+    if (pendingLoan > 0) {
+      if (Math.random() < 0.7) {
+        addIncome(3, pendingLoan);
+        setPendingLoan(0);
+      } else {
+        // They didn't pay back
+        setSocial(prev => Math.max(0, prev - 5));
+        setPendingLoan(0);
+      }
     }
-    setEventIndex((i) => i + 1);
+
+    // Pay installments
+    if (installmentRemaining > 0) {
+      const payment = installmentMonthly;
+      spend(3, payment);
+      setMonthSpent(prev => prev + payment);
+      setInstallmentRemaining(prev => prev - 1);
+      if (installmentRemaining <= 1) {
+        setInstallmentMonthly(0);
+        setInstallmentDebt(0);
+      }
+    }
+
+    // Generate events
+    const events = generateMonthEvents(currentMonth, inflated, level.maaserEnabled, consecutiveMaaser);
+    setMonthEvents(events);
+    setCurrentEventIndex(0);
+    setView(events.length > 0 ? 'monthEvents' : 'phoneBill');
   };
 
-  const finishMonth = () => {
-    const latest = levels[3];
+  const handleEventChoice = (choice: EventChoice) => {
+    if (choice.isInstallment) {
+      setInstallmentMonthly(choice.isInstallment.monthly);
+      setInstallmentDebt(choice.isInstallment.total);
+      setInstallmentRemaining(choice.isInstallment.months);
+      setSocial(prev => Math.max(0, Math.min(100, prev + choice.socialEffect)));
+    } else if (choice.lendingRisk) {
+      if (level.balance >= choice.cost) {
+        spend(3, choice.cost);
+        setMonthSpent(prev => prev + choice.cost);
+        setPendingLoan(choice.cost);
+        setSocial(prev => Math.max(0, Math.min(100, prev + choice.socialEffect)));
+      }
+    } else if (choice.cost > 0) {
+      if (level.balance >= choice.cost) {
+        spend(3, choice.cost);
+        setMonthSpent(prev => prev + choice.cost);
+      } else if (choice.debtIfCantAfford) {
+        // Forced to borrow from parents
+        const shortfall = choice.cost - level.balance;
+        if (level.balance > 0) spend(3, level.balance);
+        setDebt(prev => prev + shortfall);
+        setMonthSpent(prev => prev + choice.cost);
+      } else {
+        // Can't afford, skip
+        return;
+      }
+      setSocial(prev => Math.max(0, Math.min(100, prev + choice.socialEffect)));
+      setEnergy(prev => Math.max(0, Math.min(100, prev + choice.energyEffect)));
+    } else if (choice.cost < 0) {
+      addIncome(3, Math.abs(choice.cost));
+      setSocial(prev => Math.max(0, Math.min(100, prev + choice.socialEffect)));
+      setEnergy(prev => Math.max(0, Math.min(100, prev + choice.energyEffect)));
+    } else {
+      setSocial(prev => Math.max(0, Math.min(100, prev + choice.socialEffect)));
+      setEnergy(prev => Math.max(0, Math.min(100, prev + choice.energyEffect)));
+    }
 
-    if (latest.balance < 0) {
-      setConsequenceKey('overspentMonth');
+    if (choice.cost === 0 && !choice.isInstallment && !choice.lendingRisk && monthEvents[currentEventIndex]?.id === 'sale_temptation') {
+      incrementImpulseResist(3);
+    }
+
+    // Next event or phone bill
+    if (currentEventIndex < monthEvents.length - 1) {
+      setCurrentEventIndex(prev => prev + 1);
+    } else {
+      setView('phoneBill');
+    }
+  };
+
+  const handlePayPhoneBill = (pay: boolean) => {
+    if (pay && level.balance >= PHONE_BILL) {
+      spend(3, PHONE_BILL);
+      setMonthSpent(prev => prev + PHONE_BILL);
+      setHasPhone(true);
+    } else if (pay && level.balance < PHONE_BILL) {
+      // Borrow to pay
+      const shortfall = PHONE_BILL - level.balance;
+      if (level.balance > 0) spend(3, level.balance);
+      setDebt(prev => prev + shortfall);
+      setMonthSpent(prev => prev + PHONE_BILL);
+      setHasPhone(true);
+    } else {
+      setHasPhone(false);
+      setSocial(prev => Math.max(0, prev - 15));
+    }
+    setView('monthSummary');
+  };
+
+  const handleSaveToAccount = (amount: number) => {
+    if (level.balance >= amount) {
+      spend(3, amount);
+      setSavingsAccount(prev => prev + amount);
+      addToSavingGoal(3, amount);
+    }
+  };
+
+  const handlePayDebt = (amount: number) => {
+    const payAmount = Math.min(amount, debt, level.balance);
+    if (payAmount > 0) {
+      spend(3, payAmount);
+      setDebt(prev => prev - payAmount);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (energy <= 0 || social <= 0 || (level.balance < 0 && debt > 200)) {
       setView('gameOver');
       return;
     }
-
     if (currentMonth >= TOTAL_MONTHS) {
-      const goalCompleted = !!latest.savingGoal?.completed;
-      if (goalCompleted && latest.balance >= 0) {
-        completeLevel(3);
-        earnBadge('goalGetter');
-        if (latest.impulseResistCount >= 3) earnBadge('noImpulse');
-        setView('gameWin');
-      } else {
-        setConsequenceKey('noSavingsGoal');
-        setView('gameOver');
-      }
+      completeLevel(3);
+      setView('gameWin');
       return;
     }
 
+    // Maaser tracking
+    if (level.maaserEnabled) {
+      const maaserAmt = Math.round(monthEarned * 0.1);
+      if (level.balance >= maaserAmt) {
+        addMaaser(3, maaserAmt);
+        setConsecutiveMaaser(prev => prev + 1);
+      }
+    }
+
+    // Energy partial recovery each month
+    setEnergy(prev => Math.min(100, prev + 10));
+
+    const nextMonth = currentMonth + 1;
+    setCurrentMonth(nextMonth);
     advanceWeek(3);
-    setWorkPlan(defaultWorkPlan());
-    setMonthIncome(0);
-    setEvents([]);
-    setEventIndex(0);
-    setView('workCalendar');
+    startNewMonth(nextMonth);
   };
 
-  const resetLevel = () => {
+  const handlePlayAgain = () => {
     startLevel(3, 0);
-    setSelectedJob(null);
-    setSelectedGoal(null);
-    setWorkPlan(defaultWorkPlan());
-    setMonthIncome(0);
-    setEvents([]);
-    setEventIndex(0);
-    setConsequenceKey(null);
-    setView('characterSelect');
+    setCurrentMonth(1);
+    setEnergy(70);
+    setSocial(60);
+    setSavingsAccount(0);
+    setDebt(0);
+    setInstallmentDebt(0);
+    setInstallmentMonthly(0);
+    setInstallmentRemaining(0);
+    setHasPhone(true);
+    setInflated(false);
+    setPendingLoan(0);
+    setConsecutiveMaaser(0);
+    setView('jobSelect');
   };
 
-  // ─── Screens ────────────────────────────────────────────────────────────────
+  // ─── METERS BAR ────────────────────────────────────────────
+  const MetersBar = () => (
+    <View style={styles.metersBar}>
+      <View style={styles.meterItem}>
+        <Text style={styles.meterFace}>{getEnergyFace(energy)}</Text>
+        <View style={styles.meterTrack}>
+          <View style={[styles.meterFill, { width: `${energy}%`, backgroundColor: energy > 50 ? '#FF9800' : energy > 25 ? '#F44336' : '#B71C1C' }]} />
+        </View>
+        <Text style={styles.meterValue}>{energy}%</Text>
+      </View>
+      <View style={styles.meterItem}>
+        <Text style={styles.meterFace}>{getSocialFace(social)}</Text>
+        <View style={styles.meterTrack}>
+          <View style={[styles.meterFill, { width: `${social}%`, backgroundColor: social > 50 ? '#2196F3' : social > 25 ? '#FF9800' : '#E91E63' }]} />
+        </View>
+        <Text style={styles.meterValue}>{social}%</Text>
+      </View>
+      <View style={styles.meterItem}>
+        <Text style={styles.meterFace}>💰</Text>
+        <Text style={[styles.balanceText, level.balance < 0 && { color: colors.danger }]}>₪{level.balance}</Text>
+      </View>
+      {debt > 0 && (
+        <View style={styles.debtBadge}>
+          <Text style={styles.debtText}>🔴 Debt: ₪{debt}</Text>
+        </View>
+      )}
+      {!hasPhone && (
+        <View style={styles.phoneCutBadge}>
+          <Text style={styles.phoneCutText}>📵 Phone Cut Off!</Text>
+        </View>
+      )}
+      {savingsAccount > 0 && (
+        <View style={styles.savingsBadge}>
+          <Text style={styles.savingsText}>🏦 Savings: ₪{savingsAccount}</Text>
+        </View>
+      )}
+    </View>
+  );
 
+  // ─── INTRO ────────────────────────────────────────────────
   if (view === 'intro') {
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text style={styles.emoji}>💼</Text>
+      <SafeAreaView style={styles.centerContainer}>
+        <Text style={styles.bigEmoji}>📱</Text>
         <Text style={styles.title}>{t('levels.level3.title')}</Text>
         <Text style={styles.subtitle}>{t('levels.level3.subtitle')}</Text>
         <Text style={styles.description}>{t('levels.level3.intro')}</Text>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setView('characterSelect')}>
-          <Text style={styles.primaryText}>{t('common.startPlaying')}</Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => setView('characterSelect')}>
+          <Text style={styles.primaryBtnText}>{t('common.startPlaying')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
+  // ─── CHARACTER SELECT ──────────────────────────────────────
   if (view === 'characterSelect') {
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text style={styles.emoji}>💼</Text>
-        <Text style={styles.title}>{t('levels.level3.title')}</Text>
-        <Text style={styles.chooseLabel}>{t('common.chooseCharacter')}</Text>
-        <View style={styles.characters}>
-          <TouchableOpacity style={[styles.charCard, level.gender === 'boy' && styles.selected]} onPress={() => setGender(3, 'boy')}>
-            <Text style={styles.avatar}>👦</Text>
+      <SafeAreaView style={styles.centerContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <Text style={styles.bigEmoji}>📱</Text>
+        <Text style={styles.title}>{t('common.chooseCharacter')}</Text>
+        <View style={styles.charRow}>
+          <TouchableOpacity style={[styles.charCard, level.gender === 'boy' && styles.charSelected]} onPress={() => setGender(3, 'boy')}>
+            <Text style={styles.charEmoji}>👦</Text>
             <Text style={styles.charName}>{t('levels.level3.boyName')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.charCard, level.gender === 'girl' && styles.selected]} onPress={() => setGender(3, 'girl')}>
-            <Text style={styles.avatar}>👧</Text>
+          <TouchableOpacity style={[styles.charCard, level.gender === 'girl' && styles.charSelected]} onPress={() => setGender(3, 'girl')}>
+            <Text style={styles.charEmoji}>👧</Text>
             <Text style={styles.charName}>{t('levels.level3.girlName')}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.primaryButton, !level.gender && styles.disabled]}
-          onPress={() => {
-            if (!level.gender) return;
-            startLevel(3, 0);
-            setView('howItWorks');
-          }}
-          disabled={!level.gender}
-        >
-          <Text style={styles.primaryText}>{t('common.startPlaying')}</Text>
+        <TouchableOpacity style={[styles.primaryBtn, !level.gender && styles.disabledBtn]} onPress={() => { if (level.gender) { startLevel(3, 100); setShowMaaser(true); } }} disabled={!level.gender}>
+          <Text style={styles.primaryBtnText}>{t('common.startPlaying')}</Text>
         </TouchableOpacity>
+        <MaaserModal visible={showMaaser} onAccept={() => { toggleMaaser(3, true); setShowMaaser(false); setView('howItWorks'); }} onDecline={() => { setShowMaaser(false); setView('howItWorks'); }} />
       </SafeAreaView>
     );
   }
 
+  // ─── HOW IT WORKS ──────────────────────────────────────────
   if (view === 'howItWorks') {
-    const charName = level.gender === 'girl' ? t('levels.level3.girlName') : t('levels.level3.boyName');
+    const steps = [
+      { emoji: '📱', title: 'Your Phone is Your Lifeline', text: 'Pay ₪50/month or it gets cut off. No phone = fewer shifts, missed social events, everything gets harder.' },
+      { emoji: '💼', title: 'Take Shift Offers', text: 'Each month, shift offers come in. More work = more money, but watch your energy! Burn out and your parents limit your hours.' },
+      { emoji: '🏦', title: 'Save & Earn Interest', text: 'Money in savings earns 2% monthly. But if you need cash and borrow from parents — 10% interest on debt!' },
+      { emoji: '📈', title: 'Prices Go Up (Inflation)', text: 'Halfway through, everything gets 15% more expensive. Your pay stays the same. Plan ahead!' },
+      { emoji: '🎯', title: 'Win Condition', text: 'Survive 6 months: positive balance, savings goal reached, no debt, and all meters above 50%.' },
+    ];
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>{t('level3HowItWorks.title')}</Text>
-          <Text style={styles.description}>{t('level3HowItWorks.greeting', { name: charName })}</Text>
-          {[
-            ['💼', 'level3HowItWorks.step1title', 'level3HowItWorks.step1text'],
-            ['📅', 'level3HowItWorks.step2title', 'level3HowItWorks.step2text'],
-            ['📊', 'level3HowItWorks.step3title', 'level3HowItWorks.step3text'],
-            ['🏆', 'level3HowItWorks.step4title', 'level3HowItWorks.step4text'],
-          ].map(([emoji, titleKey, textKey], idx) => (
-            <View key={idx} style={styles.stepCard}>
-              <Text style={styles.stepEmoji}>{emoji}</Text>
-              <Text style={styles.stepTitle}>{t(titleKey)}</Text>
-              <Text style={styles.stepText}>{t(textKey)}</Text>
-            </View>
+      <SafeAreaView style={styles.scrollContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.title}>How It Works</Text>
+          <Text style={styles.howGreeting}>This is real life, {charName}. Here's what you're dealing with:</Text>
+          {steps.map((step, i) => (
+            <React.Fragment key={i}>
+              <View style={styles.stepCard}>
+                <Text style={styles.stepEmoji}>{step.emoji}</Text>
+                <Text style={styles.stepTitle}>{step.title}</Text>
+                <Text style={styles.stepText}>{step.text}</Text>
+              </View>
+              {i < steps.length - 1 && <Text style={styles.arrow}>⬇️</Text>}
+            </React.Fragment>
           ))}
           <View style={styles.tipBox}>
-            <Text style={styles.tipText}>{t('level3HowItWorks.tip')}</Text>
+            <Text style={styles.tipEmoji}>💡</Text>
+            <Text style={styles.tipText}>The buy-now-pay-later trap is real. ₪50/month sounds cheap until you realize you're paying ₪500 for something worth ₪400!</Text>
           </View>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setView('jobSelect')}>
-            <Text style={styles.primaryText}>{t('level3HowItWorks.letsGo')}</Text>
+          <TouchableOpacity style={styles.greenBtn} onPress={() => setView('jobSelect')}>
+            <Text style={styles.greenBtnText}>Let's Go! 🎉</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
+  // ─── JOB SELECT ────────────────────────────────────────────
   if (view === 'jobSelect') {
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>{t('level3Jobs.title')}</Text>
-          <Text style={styles.subtitle}>{t('level3Jobs.subtitle')}</Text>
-          {(Object.values(JOBS)).map((j) => (
-            <TouchableOpacity
-              key={j.id}
-              style={[styles.jobCard, selectedJob === j.id && styles.selected]}
-              onPress={() => setSelectedJob(j.id)}
-            >
-              <Text style={styles.jobEmoji}>{j.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.jobTitle}>{t(`level3Jobs.${j.id}`)}</Text>
-                <Text style={styles.jobMeta}>{t(`level3Jobs.${j.id}Pay`)}</Text>
-                <Text style={styles.jobMeta}>{t(`level3Jobs.${j.id}Avail`)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            style={[styles.primaryButton, !selectedJob && styles.disabled]}
-            onPress={() => setView('goalSelect')}
-            disabled={!selectedJob}
-          >
-            <Text style={styles.primaryText}>{t('common.next')}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  if (view === 'goalSelect') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>{t('level3SavingsGoals.title')}</Text>
-          <Text style={styles.subtitle}>{t('level3SavingsGoals.subtitle')}</Text>
-          {GOALS.map((g) => (
-            <TouchableOpacity
-              key={g.id}
-              style={[styles.goalCard, selectedGoal?.id === g.id && styles.selected]}
-              onPress={() => setSelectedGoal(g)}
-            >
-              <Text style={styles.goalName}>{t(g.nameKey)}</Text>
-              <Text style={styles.goalAmount}>₪{g.target}</Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            style={[styles.primaryButton, !selectedGoal && styles.disabled]}
-            onPress={() => {
-              if (!selectedGoal) return;
-              setSavingGoal(3, {
-                itemId: selectedGoal.id,
-                targetAmount: selectedGoal.target,
-                currentAmount: 0,
-                completed: false,
-              });
-              setShowMaaserPrompt(true);
-              setView('workCalendar');
-            }}
-            disabled={!selectedGoal}
-          >
-            <Text style={styles.primaryText}>{t('level3SavingsGoals.selectGoal')}</Text>
-          </TouchableOpacity>
-
-          <MaaserModal
-            visible={showMaaserPrompt}
-            onAccept={() => {
-              toggleMaaser(3, true);
-              setShowMaaserPrompt(false);
-            }}
-            onDecline={() => setShowMaaserPrompt(false)}
-          />
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  if (view === 'workCalendar' && job) {
-    return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.scrollContainer}>
         <LevelNavBar onHome={onHome} onRestart={onRestart} />
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.weekBadge}>{t('level3Ui.monthOf', { month: currentMonth, total: TOTAL_MONTHS })}</Text>
-          <Text style={styles.title}>{t('level3WorkCalendar.title')}</Text>
-          <Text style={styles.subtitle}>{t('level3WorkCalendar.subtitle')}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.title}>Choose Your Job</Text>
+          {JOBS.map(j => (
+            <TouchableOpacity key={j.id} style={[styles.jobCard, selectedJob?.id === j.id && styles.jobSelected]} onPress={() => setSelectedJob(j)}>
+              <Text style={styles.jobEmoji}>{j.emoji}</Text>
+              <View style={styles.jobInfo}>
+                <Text style={styles.jobName}>{t(`level3Jobs.${j.id}`)}</Text>
+                <Text style={styles.jobPay}>₪{j.basePayPerShift}/shift</Text>
+                <Text style={styles.jobDesc}>{t(`level3Jobs.${j.id}Desc`)}</Text>
+              </View>
+              {selectedJob?.id === j.id && <Text style={styles.jobCheck}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={[styles.primaryBtn, !selectedJob && styles.disabledBtn]} onPress={() => { if (selectedJob) setView('savingsGoal'); }} disabled={!selectedJob}>
+            <Text style={styles.primaryBtnText}>Choose This Job</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
-          <View style={styles.jobPill}>
-            <Text style={styles.jobPillText}>{job.emoji} {t(`level3Jobs.${job.id}`)} — ₪{job.payPerSession}</Text>
-          </View>
+  // ─── SAVINGS GOAL ──────────────────────────────────────────
+  if (view === 'savingsGoal') {
+    return (
+      <SafeAreaView style={styles.scrollContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.title}>🎯 Set Your Savings Goal</Text>
+          <Text style={styles.subtitle}>What are you working towards?</Text>
+          {SAVINGS_GOALS.map(goal => (
+            <TouchableOpacity key={goal.id} style={styles.goalCard} onPress={() => {
+              setSelectedGoal(goal);
+              setSavingGoal(3, { itemId: goal.id, targetAmount: goal.amount, currentAmount: 0, completed: false });
+              startNewMonth(1);
+            }}>
+              <Text style={styles.goalEmoji}>{goal.emoji}</Text>
+              <View style={styles.goalInfo}>
+                <Text style={styles.goalName}>{t(`level3SavingsGoals.${goal.nameKey}`)}</Text>
+                <Text style={styles.goalAmount}>₪{goal.amount}</Text>
+              </View>
+              <Text style={styles.goalArrow}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
-          {workPlan.map((week, weekIdx) => {
-            const isYomTovWeek = weekIdx === yomTovWeekIndex;
+  // ─── SHIFT OFFERS ──────────────────────────────────────────
+  if (view === 'shiftOffers') {
+    const allDecided = monthShifts.every(s => shiftDecisions[s.id] !== undefined);
+    const isYomTov = currentMonth === 2 || currentMonth === 5;
+
+    return (
+      <SafeAreaView style={styles.scrollContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.weekHeader}>Month {currentMonth} of {TOTAL_MONTHS}</Text>
+          {isYomTov && <View style={styles.yomTovBanner}><Text style={styles.yomTovText}>🕍 Yom Tov month — fewer shifts available</Text></View>}
+          {!hasPhone && <View style={styles.phoneCutBanner}><Text style={styles.phoneCutBannerText}>📵 Phone is off! Only walk-in shifts available.</Text></View>}
+          {inflated && currentMonth === INFLATION_MONTH && <View style={styles.inflationBanner}><Text style={styles.inflationBannerText}>📈 Prices just went up 15%! Your pay didn't.</Text></View>}
+
+          <MetersBar />
+
+          <Text style={styles.sectionTitle}>📲 Shift Offers This Month</Text>
+
+          {monthShifts.map(shift => {
+            const decided = shiftDecisions[shift.id];
+            const accepted = decided === true;
+            const declined = decided === false;
             return (
-              <View key={weekIdx} style={styles.weekCard}>
-                <Text style={styles.weekTitle}>{t('level3Ui.weekOf', { week: weekIdx + 1 })}</Text>
-                {isYomTovWeek && <Text style={styles.yomTovNote}>{t('level3Events.yomTovWeek')}</Text>}
-                <View style={styles.daysRow}>
-                  {WORK_DAYS.map((dayKey, dayIdx) => {
-                    const selected = week[dayIdx];
-                    return (
-                      <TouchableOpacity
-                        key={`${weekIdx}-${dayKey}`}
-                        style={[
-                          styles.dayChip,
-                          selected && styles.dayChipSelected,
-                          isYomTovWeek && styles.dayChipDisabled,
-                        ]}
-                        onPress={() => toggleWorkDay(weekIdx, dayIdx)}
-                        disabled={isYomTovWeek}
-                      >
-                        <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{t(`level3WorkCalendar.${dayKey}`)}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+              <View key={shift.id} style={[styles.shiftCard, accepted && styles.shiftAccepted, declined && styles.shiftDeclined]}>
+                <Text style={styles.shiftDesc}>{t(`level3Shifts.${shift.descKey}`)}</Text>
+                <View style={styles.shiftMeta}>
+                  <Text style={styles.shiftPay}>💰 ₪{shift.pay}</Text>
+                  <Text style={styles.shiftEnergy}>⚡ -{shift.energyCost}%</Text>
+                  {shift.socialCost > 0 && <Text style={styles.shiftSocial}>👫 -{shift.socialCost}%</Text>}
+                  {shift.socialGain > 0 && <Text style={styles.shiftSocialGain}>👫 +{shift.socialGain}%</Text>}
                 </View>
-                <Text style={styles.weekSessionsText}>
-                  {t('level3WorkCalendar.sessionsThisWeek', { count: weekSessions[weekIdx] })}
-                </Text>
+                {shift.conflictKey && <Text style={styles.shiftConflict}>⚠️ {t(`level3Shifts.${shift.conflictKey}`)}</Text>}
+                <View style={styles.shiftButtons}>
+                  <TouchableOpacity style={[styles.yesBtn, accepted && styles.yesBtnActive]} onPress={() => handleShiftDecision(shift.id, true)}>
+                    <Text style={[styles.yesBtnText, accepted && styles.btnTextActive]}>✓ Take it</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.noBtn, declined && styles.noBtnActive]} onPress={() => handleShiftDecision(shift.id, false)}>
+                    <Text style={[styles.noBtnText, declined && styles.btnTextActive]}>✗ Pass</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
 
-          <View style={styles.incomeCard}>
-            <Text style={styles.incomeTitle}>{t('level3WorkCalendar.estimatedEarnings', { amount: calculatedIncome })}</Text>
-            <Text style={styles.incomeSub}>{t('level3WorkCalendar.maxSessions', { max: job.maxSessionsPerWeek })}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, calculatedIncome < 50 && styles.disabled]}
-            onPress={startMonthBudget}
-            disabled={calculatedIncome < 50}
-          >
-            <Text style={styles.primaryText}>{t('level3WorkCalendar.confirmSchedule')}</Text>
+          <TouchableOpacity style={[styles.primaryBtn, !allDecided && styles.disabledBtn]} onPress={handleConfirmShifts} disabled={!allDecided}>
+            <Text style={styles.primaryBtnText}>{allDecided ? 'Lock In Shifts →' : 'Decide on all shifts first!'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  if (view === 'budgetAllocate') {
+  // ─── MONTH EVENTS ─────────────────────────────────────────
+  if (view === 'monthEvents' && monthEvents[currentEventIndex]) {
+    const evt = monthEvents[currentEventIndex];
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.weekBadge}>{t('level3Ui.monthOf', { month: currentMonth, total: TOTAL_MONTHS })}</Text>
-          <Text style={styles.title}>{t('level3BudgetUi.title')}</Text>
-          <Text style={styles.subtitle}>{t('level3BudgetUi.subtitle', { month: currentMonth, total: TOTAL_MONTHS, income: monthIncome })}</Text>
-
-          <BudgetDashboard
-            income={monthIncome}
-            categories={[
-              { label: t('level3BudgetUi.phoneBill'), amount: budget.phone, color: colors.primary },
-              { label: t('level3BudgetUi.transport'), amount: budget.transport, color: colors.warning },
-              { label: t('level3BudgetUi.food'), amount: budget.food, color: '#F8C471' },
-              { label: t('level3BudgetUi.savings'), amount: budget.savings, color: colors.success },
-              ...(level.maaserEnabled ? [{ label: t('level3BudgetUi.maaser'), amount: budget.maaser, color: colors.maaser }] : []),
-              { label: t('level3BudgetUi.fun'), amount: budget.fun, color: '#BB8FCE' },
-            ]}
-            balance={unallocated}
-            period="month"
-          />
-
-          {([
-            ['transport', 'level3BudgetUi.transport'],
-            ['food', 'level3BudgetUi.food'],
-            ['savings', 'level3BudgetUi.savings'],
-            ...(level.maaserEnabled ? [['maaser', 'level3BudgetUi.maaser']] : []),
-            ['fun', 'level3BudgetUi.fun'],
-          ] as Array<[keyof MonthlyBudget, string]>).map(([key, labelKey]) => (
-            <View key={key} style={styles.allocRow}>
-              <Text style={styles.allocLabel}>{t(labelKey)}</Text>
-              <View style={styles.allocActions}>
-                <TouchableOpacity style={styles.adjustBtn} onPress={() => updateBudget(key, -10)}><Text style={styles.adjustText}>−10</Text></TouchableOpacity>
-                <Text style={styles.allocValue}>₪{budget[key]}</Text>
-                <TouchableOpacity style={styles.adjustBtn} onPress={() => updateBudget(key, 10)}><Text style={styles.adjustText}>+10</Text></TouchableOpacity>
-              </View>
-            </View>
-          ))}
-
-          <View style={[styles.unallocatedCard, unallocated < 0 && styles.unallocatedBad]}>
-            <Text style={styles.unallocatedText}>{t('level3BudgetUi.unallocated')}:</Text>
-            <Text style={styles.unallocatedAmount}>₪{unallocated}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, (allocated > monthIncome || monthIncome < 50) && styles.disabled]}
-            onPress={confirmMonthlyBudget}
-            disabled={allocated > monthIncome || monthIncome < 50}
-          >
-            <Text style={styles.primaryText}>{t('level3BudgetUi.confirmBudget')}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  if (view === 'monthlyEvents' && currentEvent) {
-    const canAfford = levels[3].balance >= currentEvent.amount;
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>{t('level3Events.title')}</Text>
-          <View style={styles.eventCard}>
-            <Text style={styles.eventText}>{t(currentEvent.descriptionKey, { amount: currentEvent.amount })}</Text>
-
-            {currentEvent.id === 'phoneCracked' && (
-              <View style={styles.eventActions}>
-                <TouchableOpacity
-                  style={[styles.primaryButton, !canAfford && styles.disabled]}
-                  disabled={!canAfford}
-                  onPress={() => {
-                    const ok = spend(3, 200);
-                    if (!ok) setConsequenceKey('phoneCantAfford');
-                    setMonthSpent((s) => s + (ok ? 200 : 0));
-                    nextEvent();
-                  }}
-                >
-                  <Text style={styles.primaryText}>{t('level3Ui.payRepair')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => {
-                    setConsequenceKey('phoneCantAfford');
-                    nextEvent();
-                  }}
-                >
-                  <Text style={styles.secondaryText}>{t('level3Ui.skipRepair')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {currentEvent.id === 'barMitzvah' && (
-              <TouchableOpacity
-                style={[styles.primaryButton, !canAfford && styles.disabled]}
-                disabled={!canAfford}
-                onPress={() => {
-                  const ok = spend(3, currentEvent.amount);
-                  if (!ok) setConsequenceKey('barMitzvahCantAfford');
-                  setMonthSpent((s) => s + (ok ? currentEvent.amount : 0));
-                  nextEvent();
-                }}
-              >
-                <Text style={styles.primaryText}>{t('level2Ui.payEvent', { amount: currentEvent.amount })}</Text>
-              </TouchableOpacity>
-            )}
-
-            {currentEvent.id === 'yomTovWeek' && (
-              <TouchableOpacity style={styles.primaryButton} onPress={nextEvent}>
-                <Text style={styles.primaryText}>{t('common.next')}</Text>
-              </TouchableOpacity>
-            )}
-
-            {currentEvent.id === 'bonusShift' && (
-              <View style={styles.eventActions}>
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={() => {
-                    addIncome(3, currentEvent.amount);
-                    setMonthEarned((e) => e + currentEvent.amount);
-                    nextEvent();
-                  }}
-                >
-                  <Text style={styles.primaryText}>{t('level3Ui.takeBonus', { amount: currentEvent.amount })}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryButton} onPress={nextEvent}>
-                  <Text style={styles.secondaryText}>{t('level3Ui.skipBonus')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {currentEvent.id === 'mallSale' && (
-              <View style={styles.eventActions}>
-                <TouchableOpacity
-                  style={[styles.primaryButton, !canAfford && styles.disabled]}
-                  disabled={!canAfford}
-                  onPress={() => {
-                    const ok = spend(3, currentEvent.amount);
-                    if (ok) setMonthSpent((s) => s + currentEvent.amount);
-                    nextEvent();
-                  }}
-                >
-                  <Text style={styles.primaryText}>{t('level3Ui.buySale', { amount: currentEvent.amount })}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => {
-                    incrementImpulseResist(3);
-                    nextEvent();
-                  }}
-                >
-                  <Text style={styles.secondaryText}>{t('level3Ui.resistSale')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {currentEvent.id === 'bonusPayment' && (
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={() => {
-                  addIncome(3, currentEvent.amount);
-                  setMonthEarned((e) => e + currentEvent.amount);
-                  nextEvent();
-                }}
-              >
-                <Text style={styles.primaryText}>{t('level2Events.bonusReceived', { amount: currentEvent.amount })}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
-
-        {consequenceKey && (
-          <ConsequenceModal
-            visible={true}
-            consequenceKey={consequenceKey}
-            onDismiss={() => setConsequenceKey(null)}
-          />
-        )}
-      </SafeAreaView>
-    );
-  }
-
-  if (view === 'monthSummary') {
-    return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.scrollContainer}>
         <LevelNavBar onHome={onHome} onRestart={onRestart} />
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>{t('level3Ui.monthSummaryTitle', { month: currentMonth })}</Text>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryText}>{t('level3Ui.monthlyEarned', { amount: monthEarned })}</Text>
-            <Text style={styles.summaryText}>{t('level3Ui.monthlySpent', { amount: monthSpent })}</Text>
-            <Text style={styles.summaryText}>{t('level3Ui.monthlySaved', { amount: monthSaved })}</Text>
-            <Text style={[styles.summaryText, styles.balanceText]}>{t('level3Ui.balanceNow', { amount: levels[3].balance })}</Text>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]}>
+          <Text style={styles.weekHeader}>Month {currentMonth} — Event {currentEventIndex + 1}/{monthEvents.length}</Text>
+          <MetersBar />
+          <View style={styles.eventCard}>
+            <Text style={styles.eventEmoji}>{evt.emoji}</Text>
+            <Text style={styles.eventText}>{t(`level3Events2.${evt.textKey}`)}</Text>
+            <Text style={styles.eventBalance}>Balance: ₪{level.balance}</Text>
+            {evt.choices.map((choice, i) => {
+              const canAfford = choice.cost <= 0 || level.balance >= choice.cost || choice.debtIfCantAfford || choice.isInstallment || choice.lendingRisk;
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    choice.cost > 100 ? styles.dangerBtn :
+                    choice.cost <= 0 ? styles.greenBtn :
+                    styles.primaryBtn,
+                    !canAfford && styles.disabledBtn,
+                  ]}
+                  onPress={() => handleEventChoice(choice)}
+                  disabled={!canAfford}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {t(`level3Events2.${choice.labelKey}`)}
+                    {choice.cost > 0 ? ` (₪${choice.cost})` : choice.cost < 0 ? ` (+₪${Math.abs(choice.cost)})` : ''}
+                    {choice.isInstallment ? ` — or ₪${choice.isInstallment.monthly}/mo ×${choice.isInstallment.months}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-
-          {levels[3].savingGoal && (
-            <View style={styles.goalProgressCard}>
-              <Text style={styles.goalProgressTitle}>
-                {t('level3BudgetUi.savingsGoal', {
-                  name: t(`level3SavingsGoals.${levels[3].savingGoal?.itemId}`),
-                  target: levels[3].savingGoal?.targetAmount,
-                })}
-              </Text>
-              <Text style={styles.goalProgressText}>
-                {t('level3BudgetUi.savingsProgress', {
-                  current: levels[3].savingGoal.currentAmount,
-                  target: levels[3].savingGoal.targetAmount,
-                })}
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity style={styles.primaryButton} onPress={finishMonth}>
-            <Text style={styles.primaryText}>
-              {currentMonth >= TOTAL_MONTHS
-                ? t('common.done')
-                : t('level3Ui.nextMonth', { next: currentMonth + 1 })}
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  if (view === 'gameWin') {
-    const charName = level.gender === 'girl' ? t('levels.level3.girlName') : t('levels.level3.boyName');
+  // ─── PHONE BILL ────────────────────────────────────────────
+  if (view === 'phoneBill') {
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text style={styles.emoji}>🏆</Text>
-        <Text style={styles.title}>{t('level3Ui.wonTitle')}</Text>
-        <Text style={styles.description}>{t('level3Ui.wonMessage', { name: charName, balance: levels[3].balance })}</Text>
-        <TouchableOpacity style={styles.primaryButton}>
-          <Text style={styles.primaryText}>{t('level3Ui.continue')}</Text>
+      <SafeAreaView style={styles.centerContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <Text style={styles.bigEmoji}>📱</Text>
+        <Text style={styles.title}>Phone Bill Due!</Text>
+        <Text style={styles.description}>Your monthly phone bill is ₪{PHONE_BILL}. Pay it to keep your phone active.</Text>
+        <Text style={styles.eventBalance}>Balance: ₪{level.balance}</Text>
+        {level.balance < PHONE_BILL && (
+          <View style={styles.warningBox}>
+            <Text style={styles.warningText}>⚠️ You don't have enough! You can borrow from your parents (adds to your debt at 10% interest), or skip and lose your phone.</Text>
+          </View>
+        )}
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => handlePayPhoneBill(true)}>
+          <Text style={styles.primaryBtnText}>
+            {level.balance >= PHONE_BILL ? `Pay ₪${PHONE_BILL}` : `Borrow & Pay ₪${PHONE_BILL}`}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={() => handlePayPhoneBill(false)}>
+          <Text style={styles.secondaryBtnText}>📵 Skip — lose phone for next month</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  if (view === 'gameOver') {
-    const charName = level.gender === 'girl' ? t('levels.level3.girlName') : t('levels.level3.boyName');
+  // ─── MONTH SUMMARY ─────────────────────────────────────────
+  if (view === 'monthSummary') {
+    const goalProgress = level.savingGoal ? Math.round((savingsAccount / level.savingGoal.targetAmount) * 100) : 0;
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text style={styles.emoji}>😟</Text>
-        <Text style={[styles.title, { color: colors.danger }]}>{t('level3Ui.lostTitle')}</Text>
-        <Text style={styles.description}>
-          {consequenceKey === 'noSavingsGoal'
-            ? t('consequences.noSavingsGoal')
-            : t('level3Ui.lostMessage', { name: charName })}
-        </Text>
-        <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.warning }]} onPress={resetLevel}>
-          <Text style={styles.primaryText}>{t('level3Ui.playAgain')}</Text>
+      <SafeAreaView style={styles.scrollContainer}>
+        <LevelNavBar onHome={onHome} onRestart={onRestart} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.title}>📊 Month {currentMonth} Summary</Text>
+          <MetersBar />
+
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Earned from shifts</Text><Text style={[styles.summaryAmount, { color: colors.success }]}>+₪{monthEarned}</Text></View>
+            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Spent</Text><Text style={[styles.summaryAmount, { color: colors.danger }]}>-₪{monthSpent}</Text></View>
+            {savingsAccount > 0 && <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Savings (2% interest)</Text><Text style={[styles.summaryAmount, { color: '#4CAF50' }]}>₪{savingsAccount}</Text></View>}
+            {debt > 0 && <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Debt (10% interest)</Text><Text style={[styles.summaryAmount, { color: colors.danger }]}>-₪{debt}</Text></View>}
+            {installmentRemaining > 0 && <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Installments left</Text><Text style={styles.summaryAmount}>₪{installmentMonthly}/mo × {installmentRemaining}</Text></View>}
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}><Text style={styles.summaryLabelBold}>Cash Balance</Text><Text style={[styles.summaryAmountBold, level.balance < 0 && { color: colors.danger }]}>₪{level.balance}</Text></View>
+          </View>
+
+          {/* Savings goal progress */}
+          {selectedGoal && (
+            <View style={styles.goalProgressCard}>
+              <Text style={styles.goalProgressTitle}>🎯 {selectedGoal.emoji} {t(`level3SavingsGoals.${selectedGoal.nameKey}`)}</Text>
+              <View style={styles.goalBar}><View style={[styles.goalBarFill, { width: `${Math.min(goalProgress, 100)}%` }]} /></View>
+              <Text style={styles.goalProgressText}>₪{savingsAccount} / ₪{selectedGoal.amount} ({goalProgress}%)</Text>
+            </View>
+          )}
+
+          {/* Save to account option */}
+          {level.balance > 0 && (
+            <View style={styles.saveSection}>
+              <Text style={styles.saveSectionTitle}>🏦 Save to your account?</Text>
+              <View style={styles.saveButtons}>
+                {[25, 50, 100].filter(a => a <= level.balance).map(amount => (
+                  <TouchableOpacity key={amount} style={styles.saveBtn} onPress={() => handleSaveToAccount(amount)}>
+                    <Text style={styles.saveBtnText}>Save ₪{amount}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Pay debt option */}
+          {debt > 0 && level.balance > 0 && (
+            <View style={styles.debtSection}>
+              <Text style={styles.debtSectionTitle}>🔴 Pay down debt? (₪{debt} at 10% interest)</Text>
+              <TouchableOpacity style={styles.debtPayBtn} onPress={() => handlePayDebt(Math.min(debt, level.balance))}>
+                <Text style={styles.debtPayBtnText}>Pay ₪{Math.min(debt, level.balance)}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Warnings */}
+          {energy < 30 && <View style={styles.warningBox}><Text style={styles.warningText}>😴 You're burning out! Work fewer shifts next month or your parents will step in.</Text></View>}
+          {social < 30 && <View style={styles.warningBox}><Text style={styles.warningText}>😶 Your friends barely see you anymore. Make time for people!</Text></View>}
+          {debt > 100 && <View style={styles.warningBox}><Text style={styles.warningText}>🔴 Your debt is growing with 10% interest! Pay it down before it spirals.</Text></View>}
+          {!hasPhone && <View style={styles.warningBox}><Text style={styles.warningText}>📵 No phone next month = fewer shifts and missed social events.</Text></View>}
+
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleNextMonth}>
+            <Text style={styles.primaryBtnText}>{currentMonth < TOTAL_MONTHS ? `Start Month ${currentMonth + 1} →` : '🏆 See Results!'}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── GAME WIN ──────────────────────────────────────────────
+  if (view === 'gameWin') {
+    const goalReached = savingsAccount >= (selectedGoal?.amount || 0);
+    const noDebt = debt === 0 && installmentRemaining === 0;
+    const metersGood = energy >= 50 && social >= 50;
+    const perfectWin = goalReached && noDebt && metersGood && level.balance > 0;
+
+    return (
+      <SafeAreaView style={styles.scrollContainer}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]}>
+          <Text style={styles.bigEmoji}>{perfectWin ? '🏆' : '🎉'}</Text>
+          <Text style={styles.title}>{perfectWin ? '6 Months — Perfect Score!' : '6 Months Complete!'}</Text>
+
+          <View style={styles.starReport}>
+            <Text style={styles.starReportTitle}>Report Card</Text>
+            <View style={styles.starRow}><Text style={styles.starLabel}>💰 Money</Text><Text style={styles.starValue}>{getStarRating(Math.min(100, level.balance))}</Text></View>
+            <View style={styles.starRow}><Text style={styles.starLabel}>⚡ Energy</Text><Text style={styles.starValue}>{getStarRating(energy)}</Text></View>
+            <View style={styles.starRow}><Text style={styles.starLabel}>👫 Social</Text><Text style={styles.starValue}>{getStarRating(social)}</Text></View>
+            <View style={styles.starRow}><Text style={styles.starLabel}>🏦 Savings Goal</Text><Text style={styles.starValue}>{goalReached ? '⭐⭐⭐' : '—'}</Text></View>
+            <View style={styles.starRow}><Text style={styles.starLabel}>🔴 Debt Free</Text><Text style={styles.starValue}>{noDebt ? '⭐⭐⭐' : '—'}</Text></View>
+          </View>
+
+          <Text style={styles.finalBalance}>Cash: ₪{level.balance} | Savings: ₪{savingsAccount}{debt > 0 ? ` | Debt: ₪${debt}` : ''}</Text>
+
+          {!perfectWin && <Text style={styles.description}>
+            {!goalReached ? `You needed ₪${selectedGoal?.amount} in savings but only had ₪${savingsAccount}. Save more each month!` :
+             debt > 0 ? 'You still have debt! Avoid buy-now-pay-later and pay down debt faster.' :
+             !metersGood ? 'Your energy or social life suffered. Balance work with rest and friends!' :
+             'Close! Keep trying for the perfect score.'}
+          </Text>}
+
+          <TouchableOpacity style={styles.primaryBtn} onPress={handlePlayAgain}>
+            <Text style={styles.primaryBtnText}>Play Again</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── GAME OVER ─────────────────────────────────────────────
+  if (view === 'gameOver') {
+    const reason = energy <= 0 ? `You burned out in month ${currentMonth}. Your parents pulled you from your job. Work-life balance matters!`
+      : social <= 0 ? `You lost all your friends by month ${currentMonth}. Money isn't everything — people matter!`
+      : `Your debt spiraled out of control by month ${currentMonth}. Avoid borrowing and the buy-now-pay-later trap!`;
+    return (
+      <SafeAreaView style={styles.centerContainer}>
+        <Text style={styles.bigEmoji}>😢</Text>
+        <Text style={styles.title}>Game Over</Text>
+        <Text style={styles.description}>{reason}</Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={handlePlayAgain}>
+          <Text style={styles.primaryBtnText}>Try Again</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -758,219 +900,149 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
   return null;
 };
 
+// ─── STYLES ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  centered: {
-    flex: 1,
-    backgroundColor: colors.offWhite,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  emoji: { fontSize: 72, marginBottom: spacing.md },
-  title: {
-    fontSize: fonts.sizes.xxl,
-    fontWeight: '800',
-    color: colors.primary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: fonts.sizes.md,
-    color: colors.gray,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  description: {
-    fontSize: fonts.sizes.lg,
-    color: colors.darkGray,
-    textAlign: 'center',
-    lineHeight: 28,
-    marginBottom: spacing.xl,
-  },
-  chooseLabel: {
-    fontSize: fonts.sizes.lg,
-    color: colors.darkGray,
-    fontWeight: '700',
-    marginBottom: spacing.md,
-  },
-  characters: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.xl },
-  charCard: {
-    width: 130,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'transparent',
-  },
-  selected: { borderColor: colors.primary, backgroundColor: '#e8f4fd' },
-  avatar: { fontSize: 56, marginBottom: spacing.xs },
+  centerContainer: { flex: 1, backgroundColor: colors.offWhite, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  scrollContainer: { flex: 1, backgroundColor: colors.offWhite },
+  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  bigEmoji: { fontSize: 72, marginBottom: spacing.md },
+  title: { fontSize: fonts.sizes.xxl, fontWeight: '800', color: colors.primary, textAlign: 'center', marginBottom: spacing.xs },
+  subtitle: { fontSize: fonts.sizes.md, color: colors.gray, textAlign: 'center', marginBottom: spacing.lg },
+  description: { fontSize: fonts.sizes.lg, color: colors.darkGray, textAlign: 'center', lineHeight: 28, marginBottom: spacing.xl },
+  sectionTitle: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.darkGray, marginBottom: spacing.md },
+  weekHeader: { fontSize: fonts.sizes.xxl, fontWeight: '800', color: colors.primary, textAlign: 'center', marginBottom: spacing.sm },
+  howGreeting: { fontSize: fonts.sizes.lg, color: colors.darkGray, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 26 },
+
+  // Buttons
+  primaryBtn: { backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, marginTop: spacing.md, width: '100%', alignItems: 'center' },
+  primaryBtnText: { color: colors.white, fontSize: fonts.sizes.md, fontWeight: '700', textAlign: 'center' },
+  greenBtn: { backgroundColor: '#4CAF50', borderRadius: borderRadius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, marginTop: spacing.md, width: '100%', alignItems: 'center' },
+  greenBtnText: { color: colors.white, fontSize: fonts.sizes.lg, fontWeight: '700' },
+  dangerBtn: { backgroundColor: colors.danger, borderRadius: borderRadius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, marginTop: spacing.md, width: '100%', alignItems: 'center' },
+  secondaryBtn: { borderRadius: borderRadius.md, paddingVertical: spacing.md, marginTop: spacing.sm, width: '100%', alignItems: 'center' },
+  secondaryBtnText: { color: colors.gray, fontSize: fonts.sizes.md, fontWeight: '600' },
+  disabledBtn: { backgroundColor: colors.gray, opacity: 0.5 },
+
+  // Characters
+  charRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.xl },
+  charCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', width: 120, borderWidth: 3, borderColor: 'transparent' },
+  charSelected: { borderColor: colors.primary, backgroundColor: '#e8f4fd' },
+  charEmoji: { fontSize: 48, marginBottom: spacing.xs },
   charName: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.darkGray },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  primaryText: { color: colors.white, fontSize: fonts.sizes.lg, fontWeight: '700' },
-  secondaryButton: {
-    backgroundColor: colors.lightGray,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    alignItems: 'center',
-  },
-  secondaryText: { color: colors.darkGray, fontSize: fonts.sizes.md, fontWeight: '600' },
-  disabled: { opacity: 0.5 },
-  stepCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  stepEmoji: { fontSize: 32, marginBottom: spacing.xs, textAlign: 'center' },
-  stepTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.primary, textAlign: 'center', marginBottom: spacing.xs },
-  stepText: { fontSize: fonts.sizes.sm, color: colors.darkGray, textAlign: 'center', lineHeight: 20 },
-  tipBox: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-  },
-  tipText: { fontSize: fonts.sizes.sm, color: colors.darkGray, textAlign: 'center' },
-  jobCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  jobEmoji: { fontSize: 38, marginRight: spacing.sm },
-  jobTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.darkGray },
-  jobMeta: { fontSize: fonts.sizes.sm, color: colors.gray },
-  goalCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  goalName: { fontSize: fonts.sizes.md, color: colors.darkGray, fontWeight: '700' },
-  goalAmount: { fontSize: fonts.sizes.md, color: colors.success, fontWeight: '800' },
-  weekBadge: {
-    alignSelf: 'center',
-    backgroundColor: colors.primary,
-    color: colors.white,
-    borderRadius: borderRadius.round,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.sm,
-    fontSize: fonts.sizes.sm,
-    fontWeight: '700',
-  },
-  jobPill: {
-    backgroundColor: '#EBF5FB',
-    borderRadius: borderRadius.round,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    alignSelf: 'center',
-    marginBottom: spacing.md,
-  },
-  jobPillText: { color: colors.primary, fontSize: fonts.sizes.sm, fontWeight: '700' },
-  weekCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  weekTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.darkGray, marginBottom: spacing.xs },
-  yomTovNote: { fontSize: fonts.sizes.sm, color: colors.warning, marginBottom: spacing.sm },
-  daysRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  dayChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.round,
-    backgroundColor: colors.lightGray,
-  },
-  dayChipSelected: { backgroundColor: colors.primary },
-  dayChipDisabled: { opacity: 0.5 },
-  dayText: { fontSize: fonts.sizes.xs, color: colors.darkGray, fontWeight: '600' },
-  dayTextSelected: { color: colors.white },
-  weekSessionsText: { marginTop: spacing.xs, fontSize: fonts.sizes.sm, color: colors.gray },
-  incomeCard: {
-    backgroundColor: '#d5f5e3',
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-  },
-  incomeTitle: { fontSize: fonts.sizes.md, color: colors.success, fontWeight: '700', textAlign: 'center' },
-  incomeSub: { fontSize: fonts.sizes.sm, color: colors.darkGray, textAlign: 'center', marginTop: spacing.xs },
-  allocRow: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  allocLabel: { fontSize: fonts.sizes.md, color: colors.darkGray, fontWeight: '600' },
-  allocActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  adjustBtn: {
-    width: 44,
-    height: 32,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.lightGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adjustText: { fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.darkGray },
-  allocValue: { width: 58, textAlign: 'center', fontSize: fonts.sizes.md, fontWeight: '800', color: colors.primary },
-  unallocatedCard: {
-    marginTop: spacing.md,
-    backgroundColor: '#EBF5FB',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  unallocatedBad: { backgroundColor: colors.dangerLight },
-  unallocatedText: { fontSize: fonts.sizes.md, color: colors.darkGray, fontWeight: '700' },
-  unallocatedAmount: { fontSize: fonts.sizes.md, color: colors.primary, fontWeight: '800' },
-  eventCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    marginTop: spacing.md,
-  },
+
+  // How it works
+  stepCard: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.lg, width: '100%', alignItems: 'center', shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  stepEmoji: { fontSize: 40, marginBottom: spacing.xs },
+  stepTitle: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.primary, marginBottom: spacing.xs, textAlign: 'center' },
+  stepText: { fontSize: fonts.sizes.md, color: colors.darkGray, textAlign: 'center', lineHeight: 22 },
+  arrow: { fontSize: 24, paddingVertical: spacing.xs, textAlign: 'center' },
+  tipBox: { backgroundColor: '#FFF8E1', borderRadius: 16, padding: spacing.lg, width: '100%', alignItems: 'center', marginTop: spacing.lg, borderWidth: 2, borderColor: '#FFD54F' },
+  tipEmoji: { fontSize: 32, marginBottom: spacing.xs },
+  tipText: { fontSize: fonts.sizes.md, color: colors.darkGray, textAlign: 'center', lineHeight: 22, fontStyle: 'italic' },
+
+  // Jobs
+  jobCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.lg, width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, borderWidth: 3, borderColor: 'transparent', shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  jobSelected: { borderColor: colors.primary, backgroundColor: '#e8f4fd' },
+  jobEmoji: { fontSize: 36, marginRight: spacing.md },
+  jobInfo: { flex: 1 },
+  jobName: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.darkGray },
+  jobPay: { fontSize: fonts.sizes.md, fontWeight: '600', color: colors.success },
+  jobDesc: { fontSize: fonts.sizes.sm, color: colors.gray, marginTop: spacing.xs },
+  jobCheck: { fontSize: 24, color: colors.primary, fontWeight: '800' },
+
+  // Goals
+  goalCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.lg, width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  goalEmoji: { fontSize: 36, marginRight: spacing.md },
+  goalInfo: { flex: 1 },
+  goalName: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.darkGray },
+  goalAmount: { fontSize: fonts.sizes.md, fontWeight: '600', color: colors.success },
+  goalArrow: { fontSize: 24, color: colors.gray },
+
+  // Meters
+  metersBar: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.md, marginBottom: spacing.lg, shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  meterItem: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  meterFace: { fontSize: 24, marginRight: spacing.sm, width: 30 },
+  meterTrack: { flex: 1, height: 12, backgroundColor: colors.lightGray, borderRadius: 6, overflow: 'hidden', marginRight: spacing.sm },
+  meterFill: { height: '100%', borderRadius: 6 },
+  meterValue: { fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.darkGray, width: 36, textAlign: 'right' },
+  balanceText: { fontSize: fonts.sizes.lg, fontWeight: '800', color: colors.primary },
+  debtBadge: { backgroundColor: '#FFEBEE', borderRadius: 8, padding: spacing.xs, marginTop: spacing.xs },
+  debtText: { fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.danger, textAlign: 'center' },
+  phoneCutBadge: { backgroundColor: '#FFF3E0', borderRadius: 8, padding: spacing.xs, marginTop: spacing.xs },
+  phoneCutText: { fontSize: fonts.sizes.sm, fontWeight: '700', color: '#E65100', textAlign: 'center' },
+  savingsBadge: { backgroundColor: '#E8F5E9', borderRadius: 8, padding: spacing.xs, marginTop: spacing.xs },
+  savingsText: { fontSize: fonts.sizes.sm, fontWeight: '700', color: '#2E7D32', textAlign: 'center' },
+
+  // Shifts
+  shiftCard: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.md, marginBottom: spacing.md, borderWidth: 3, borderColor: 'transparent', shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  shiftAccepted: { borderColor: '#4CAF50', backgroundColor: '#F1F8E9' },
+  shiftDeclined: { borderColor: '#9E9E9E', backgroundColor: '#FAFAFA', opacity: 0.7 },
+  shiftDesc: { fontSize: fonts.sizes.md, fontWeight: '600', color: colors.darkGray, lineHeight: 22, marginBottom: spacing.sm },
+  shiftMeta: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm, flexWrap: 'wrap' },
+  shiftPay: { fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.success },
+  shiftEnergy: { fontSize: fonts.sizes.sm, fontWeight: '600', color: '#FF9800' },
+  shiftSocial: { fontSize: fonts.sizes.sm, fontWeight: '600', color: '#E91E63' },
+  shiftSocialGain: { fontSize: fonts.sizes.sm, fontWeight: '600', color: '#2196F3' },
+  shiftConflict: { fontSize: fonts.sizes.sm, color: '#E65100', marginBottom: spacing.sm, fontStyle: 'italic' },
+  shiftButtons: { flexDirection: 'row', gap: spacing.sm },
+  yesBtn: { flex: 1, backgroundColor: '#E8F5E9', borderRadius: borderRadius.md, paddingVertical: spacing.sm, alignItems: 'center', borderWidth: 2, borderColor: '#C8E6C9' },
+  yesBtnActive: { backgroundColor: '#4CAF50', borderColor: '#388E3C' },
+  yesBtnText: { fontSize: fonts.sizes.md, fontWeight: '700', color: '#388E3C' },
+  noBtn: { flex: 1, backgroundColor: '#FAFAFA', borderRadius: borderRadius.md, paddingVertical: spacing.sm, alignItems: 'center', borderWidth: 2, borderColor: '#E0E0E0' },
+  noBtnActive: { backgroundColor: '#9E9E9E', borderColor: '#757575' },
+  noBtnText: { fontSize: fonts.sizes.md, fontWeight: '700', color: '#757575' },
+  btnTextActive: { color: colors.white },
+
+  // Banners
+  yomTovBanner: { backgroundColor: '#F3E5F5', borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, borderWidth: 2, borderColor: '#CE93D8' },
+  yomTovText: { fontSize: fonts.sizes.md, fontWeight: '600', color: '#7B1FA2', textAlign: 'center' },
+  phoneCutBanner: { backgroundColor: '#FFF3E0', borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, borderWidth: 2, borderColor: '#FFB74D' },
+  phoneCutBannerText: { fontSize: fonts.sizes.md, fontWeight: '600', color: '#E65100', textAlign: 'center' },
+  inflationBanner: { backgroundColor: '#FFEBEE', borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, borderWidth: 2, borderColor: '#EF9A9A' },
+  inflationBannerText: { fontSize: fonts.sizes.md, fontWeight: '600', color: '#C62828', textAlign: 'center' },
+
+  // Events
+  eventCard: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.xl, width: '100%', alignItems: 'center', shadowColor: colors.black, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
+  eventEmoji: { fontSize: 56, marginBottom: spacing.md },
   eventText: { fontSize: fonts.sizes.lg, color: colors.darkGray, textAlign: 'center', lineHeight: 26, marginBottom: spacing.md },
-  eventActions: { gap: spacing.sm },
-  summaryCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-  },
-  summaryText: { fontSize: fonts.sizes.md, color: colors.darkGray, marginBottom: spacing.xs },
-  balanceText: { fontWeight: '800', color: colors.primary },
-  goalProgressCard: {
-    backgroundColor: '#d5f5e3',
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  goalProgressTitle: { fontSize: fonts.sizes.sm, color: colors.darkGray, fontWeight: '700', marginBottom: spacing.xs },
-  goalProgressText: { fontSize: fonts.sizes.sm, color: colors.success, fontWeight: '700' },
+  eventBalance: { fontSize: fonts.sizes.md, fontWeight: '600', color: colors.gray, marginBottom: spacing.lg },
+
+  // Summary
+  summaryCard: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.lg, marginTop: spacing.md, shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
+  summaryLabel: { fontSize: fonts.sizes.md, color: colors.darkGray },
+  summaryAmount: { fontSize: fonts.sizes.md, fontWeight: '700' },
+  summaryDivider: { height: 2, backgroundColor: colors.lightGray, marginVertical: spacing.sm },
+  summaryLabelBold: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.darkGray },
+  summaryAmountBold: { fontSize: fonts.sizes.lg, fontWeight: '800', color: colors.primary },
+
+  // Goal progress
+  goalProgressCard: { backgroundColor: '#FFF8E1', borderRadius: 16, padding: spacing.lg, width: '100%', marginTop: spacing.md, borderWidth: 2, borderColor: '#FFD54F' },
+  goalProgressTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.darkGray, marginBottom: spacing.sm },
+  goalBar: { height: 16, backgroundColor: colors.lightGray, borderRadius: 8, overflow: 'hidden', marginBottom: spacing.xs },
+  goalBarFill: { height: '100%', backgroundColor: '#4CAF50', borderRadius: 8 },
+  goalProgressText: { fontSize: fonts.sizes.sm, fontWeight: '600', color: colors.darkGray, textAlign: 'center' },
+
+  // Save/Debt sections
+  saveSection: { backgroundColor: '#E8F5E9', borderRadius: 16, padding: spacing.lg, width: '100%', marginTop: spacing.md, borderWidth: 2, borderColor: '#C8E6C9' },
+  saveSectionTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: '#2E7D32', marginBottom: spacing.sm },
+  saveButtons: { flexDirection: 'row', gap: spacing.sm },
+  saveBtn: { flex: 1, backgroundColor: '#4CAF50', borderRadius: 8, paddingVertical: spacing.sm, alignItems: 'center' },
+  saveBtnText: { color: colors.white, fontWeight: '700', fontSize: fonts.sizes.sm },
+  debtSection: { backgroundColor: '#FFEBEE', borderRadius: 16, padding: spacing.lg, width: '100%', marginTop: spacing.md, borderWidth: 2, borderColor: '#EF9A9A' },
+  debtSectionTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.danger, marginBottom: spacing.sm },
+  debtPayBtn: { backgroundColor: colors.danger, borderRadius: 8, paddingVertical: spacing.sm, alignItems: 'center' },
+  debtPayBtnText: { color: colors.white, fontWeight: '700', fontSize: fonts.sizes.md },
+
+  // Warnings
+  warningBox: { backgroundColor: '#FFF3E0', borderRadius: 12, padding: spacing.md, marginTop: spacing.md, borderWidth: 2, borderColor: '#FFE0B2', width: '100%' },
+  warningText: { fontSize: fonts.sizes.md, color: '#E65100', lineHeight: 22 },
+
+  // Stars
+  starReport: { backgroundColor: colors.white, borderRadius: 16, padding: spacing.xl, width: '100%', marginBottom: spacing.lg, shadowColor: colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  starReportTitle: { fontSize: fonts.sizes.xl, fontWeight: '800', color: colors.primary, textAlign: 'center', marginBottom: spacing.lg },
+  starRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lightGray },
+  starLabel: { fontSize: fonts.sizes.lg, color: colors.darkGray },
+  starValue: { fontSize: fonts.sizes.lg },
+  finalBalance: { fontSize: fonts.sizes.md, fontWeight: '600', color: colors.gray, marginBottom: spacing.lg, textAlign: 'center' },
 });

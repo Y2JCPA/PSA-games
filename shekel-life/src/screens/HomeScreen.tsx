@@ -21,7 +21,7 @@ interface HomeScreenProps {
 const levelConfig: Record<LevelId, { emoji: string; age: string; gradient: [string, string]; icon: string }> = {
   1: { emoji: '🛒', age: '6-8', gradient: ['#E8F5E9', '#C8E6C9'], icon: '🧹' },
   2: { emoji: '📚', age: '9-11', gradient: ['#E3F2FD', '#BBDEFB'], icon: '😊' },
-  3: { emoji: '💼', age: '12-14', gradient: ['#FFF3E0', '#FFE0B2'], icon: '📅' },
+  3: { emoji: '📱', age: '12-14', gradient: ['#FFF3E0', '#FFE0B2'], icon: '📅' },
   4: { emoji: '🏦', age: '15-17', gradient: ['#F3E5F5', '#E1BEE7'], icon: '📈' },
 };
 
