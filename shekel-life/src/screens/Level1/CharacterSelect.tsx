@@ -15,7 +15,7 @@ export const CharacterSelect: React.FC<CharacterSelectProps> = ({ onSelect }) =>
 
   const handleStart = () => {
     if (!gender) return;
-    startLevel(1, 20); // Start with ₪20 from Savta & Saba
+    startLevel(1, 5); // Start with ₪5 — earn the rest from chores!
     onSelect();
   };
 

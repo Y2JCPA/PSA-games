@@ -21,9 +21,10 @@ import { colors, fonts, spacing, borderRadius } from '../../theme';
 
 interface MakoletShopProps {
   onSetGoal: () => void;
+  onNextDay: () => void;
 }
 
-export const MakoletShop: React.FC<MakoletShopProps> = ({ onSetGoal }) => {
+export const MakoletShop: React.FC<MakoletShopProps> = ({ onSetGoal, onNextDay }) => {
   const { t } = useTranslation();
   const {
     levels,
@@ -112,16 +113,8 @@ export const MakoletShop: React.FC<MakoletShopProps> = ({ onSetGoal }) => {
   }, [level.balance, addToSavingGoal, badges, earnBadge]);
 
   const handleNextDay = useCallback(() => {
-    advanceDay(1);
-
-    // Give pocket money on Sunday (day 1)
-    const nextDay = level.currentDay >= 7 ? 1 : level.currentDay + 1;
-    if (nextDay === 1) {
-      // Weekly gift from grandparents: ₪10-20
-      const gift = 10 + Math.floor(Math.random() * 11);
-      addIncome(1, gift);
-    }
-  }, [level.currentDay, advanceDay, addIncome]);
+    onNextDay();
+  }, [onNextDay]);
 
   const snackItems = getImmediateItems();
   const toyItems = getGoalItems();
@@ -145,13 +138,11 @@ export const MakoletShop: React.FC<MakoletShopProps> = ({ onSetGoal }) => {
   }, [level.balance]);
 
   const handleSkipToNextWeek = useCallback(() => {
-    // Advance to Sunday (day 1) of next week
-    const { advanceWeek, addIncome: addIncomeAction } = useGameStore.getState();
+    // Advance to Sunday (day 1) of next week — chores will be available there
+    const { advanceWeek } = useGameStore.getState();
     advanceWeek(1);
-    // Weekly gift from grandparents: ₪10-20
-    const gift = 10 + Math.floor(Math.random() * 11);
-    addIncomeAction(1, gift);
-  }, []);
+    onNextDay(); // Go back to chore board for new week
+  }, [onNextDay]);
 
   const renderShelfItem = ({ item }: { item: ShopItem }) => {
     const canAfford = item.price <= level.balance - basketTotal;

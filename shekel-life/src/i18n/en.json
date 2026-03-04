@@ -41,7 +41,7 @@
       "description": "Learn to save and spend wisely at the makolet!",
       "boyName": "Yoni",
       "girlName": "Yael",
-      "intro": "Welcome! Savta and Saba gave you some shekalim. Let's go shopping at the makolet — but choose wisely! Candy is yummy but it's gone fast. Save up for something bigger!"
+      "intro": "Welcome! You can earn shekalim by helping out around the house. Do chores, get paid, then head to the makolet — but choose wisely! Candy is yummy but it's gone fast. Save up for something bigger!"
     },
     "level2": {
       "title": "The School Year Budget",
@@ -169,6 +169,28 @@
       "name": "Shekel Legend",
       "description": "Completed all four levels with a positive balance"
     }
+  },
+  "chores": {
+    "title": "Chore Board",
+    "instructions": "Pick up to {{max}} chores to earn shekalim today!",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard",
+    "readBook": "Read a Book",
+    "makeBed": "Make Your Bed",
+    "tidyToys": "Tidy Up Toys",
+    "setTable": "Set the Table",
+    "foldLaundry": "Fold Laundry",
+    "takeTrash": "Take Out Trash",
+    "helpCook": "Help Cook",
+    "sweepFloor": "Sweep the Floor",
+    "washFloor": "Wash the Floor",
+    "washDishes": "Wash the Dishes",
+    "todaysEarnings": "Today's Earnings",
+    "choresDone": "chores picked",
+    "collectPay": "Collect",
+    "selectChores": "Pick some chores first!",
+    "skipDay": "Skip — no chores today"
   },
   "home": {
     "welcome": "Welcome to Shekel Life!",

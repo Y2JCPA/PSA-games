@@ -23,3 +23,11 @@ export {
   getGoalItems,
   getItemById,
 } from './shopItems';
+
+export {
+  chores,
+  getDailyChores,
+  getChoreById,
+  MAX_CHORES_PER_DAY,
+} from './chores';
+export type { Chore } from './chores';

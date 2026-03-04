@@ -2,20 +2,39 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store';
+import { getDayName } from '../../mechanics/shabbatCalendar';
 import { CharacterSelect } from './CharacterSelect';
 import { MakoletShop } from './MakoletShop';
 import { GoalPicker } from './GoalPicker';
+import { ChoreBoard } from '../../components/ChoreBoard';
 import { colors, fonts, spacing } from '../../theme';
 
-type Level1View = 'intro' | 'characterSelect' | 'shop' | 'goalPicker';
+type Level1View = 'intro' | 'characterSelect' | 'chores' | 'shop' | 'goalPicker';
 
 export const Level1Screen: React.FC = () => {
   const { t } = useTranslation();
-  const { levels } = useGameStore();
+  const { levels, language, addIncome, advanceDay } = useGameStore();
   const level = levels[1];
   const [view, setView] = useState<Level1View>(
-    level.status === 'in_progress' ? 'shop' : 'intro'
+    level.status === 'in_progress' ? 'chores' : 'intro'
   );
+
+  const handleChoresComplete = (earnings: number, choresDone: string[]) => {
+    if (earnings > 0) {
+      addIncome(1, earnings);
+    }
+    setView('shop');
+  };
+
+  const handleChoresSkip = () => {
+    setView('shop');
+  };
+
+  const handleNextDay = () => {
+    advanceDay(1);
+    // Go back to chores for the new day
+    setView('chores');
+  };
 
   if (view === 'intro') {
     return (
@@ -35,7 +54,19 @@ export const Level1Screen: React.FC = () => {
   }
 
   if (view === 'characterSelect') {
-    return <CharacterSelect onSelect={() => setView('shop')} />;
+    return <CharacterSelect onSelect={() => setView('chores')} />;
+  }
+
+  if (view === 'chores') {
+    return (
+      <ChoreBoard
+        currentDay={level.currentDay}
+        currentWeek={level.currentWeek}
+        dayName={getDayName(level.currentDay, language)}
+        onComplete={handleChoresComplete}
+        onSkip={handleChoresSkip}
+      />
+    );
   }
 
   if (view === 'goalPicker') {
@@ -47,7 +78,12 @@ export const Level1Screen: React.FC = () => {
     );
   }
 
-  return <MakoletShop onSetGoal={() => setView('goalPicker')} />;
+  return (
+    <MakoletShop
+      onSetGoal={() => setView('goalPicker')}
+      onNextDay={handleNextDay}
+    />
+  );
 };
 
 const styles = StyleSheet.create({
