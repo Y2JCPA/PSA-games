@@ -60,19 +60,19 @@ interface SavingsGoalOption {
 
 // ─── Constants ───────────────────────────────────────────────
 const JOBS: Job[] = [
-  { id: 'babysitting', basePayPerShift: 45, emoji: '🍼' },
-  { id: 'tutoring', basePayPerShift: 55, emoji: '📖' },
-  { id: 'delivery', basePayPerShift: 35, emoji: '🛵' },
+  { id: 'babysitting', basePayPerShift: 68, emoji: '🍼' },
+  { id: 'tutoring', basePayPerShift: 83, emoji: '📖' },
+  { id: 'delivery', basePayPerShift: 53, emoji: '🛵' },
 ];
 
 const SAVINGS_GOALS: SavingsGoalOption[] = [
-  { id: 'newPhone', nameKey: 'newPhone', amount: 900, emoji: '📱' },
-  { id: 'trip', nameKey: 'trip', amount: 600, emoji: '✈️' },
-  { id: 'laptop', nameKey: 'laptop', amount: 1400, emoji: '💻' },
-  { id: 'bike', nameKey: 'bike', amount: 750, emoji: '🚲' },
+  { id: 'newPhone', nameKey: 'newPhone', amount: 600, emoji: '📱' },
+  { id: 'trip', nameKey: 'trip', amount: 400, emoji: '✈️' },
+  { id: 'laptop', nameKey: 'laptop', amount: 938, emoji: '💻' },
+  { id: 'bike', nameKey: 'bike', amount: 500, emoji: '🚲' },
 ];
 
-const PHONE_BILL = 50;
+const PHONE_BILL = 34;
 const TOTAL_MONTHS = 6;
 const INTEREST_RATE = 0.02;       // 2% monthly on savings
 const DEBT_INTEREST = 0.10;       // 10% on parent loans
@@ -116,71 +116,71 @@ function generateMonthEvents(month: number, inflated: boolean, hasMaaser: boolea
     {
       id: 'phone_cracked', textKey: 'phoneCracked', emoji: '📱💥',
       choices: [
-        { labelKey: 'fixPhone', cost: Math.round(200 * priceAdj), socialEffect: 0, energyEffect: 0 },
+        { labelKey: 'fixPhone', cost: Math.round(134 * priceAdj), socialEffect: 0, energyEffect: 0 },
         { labelKey: 'liveCracked', cost: 0, socialEffect: -5, energyEffect: -5 },
       ],
     },
     {
       id: 'jordans', textKey: 'jordans', emoji: '👟',
       choices: [
-        { labelKey: 'buyJordans', cost: Math.round(400 * priceAdj), socialEffect: 15, energyEffect: 0 },
-        { labelKey: 'buyJordansInstall', cost: 0, socialEffect: 15, energyEffect: 0, isInstallment: { monthly: 50, total: Math.round(500 * priceAdj), months: 10 } },
+        { labelKey: 'buyJordans', cost: Math.round(268 * priceAdj), socialEffect: 15, energyEffect: 0 },
+        { labelKey: 'buyJordansInstall', cost: 0, socialEffect: 15, energyEffect: 0, isInstallment: { monthly: 34, total: Math.round(335 * priceAdj), months: 10 } },
         { labelKey: 'skipJordans', cost: 0, socialEffect: -8, energyEffect: 0 },
       ],
     },
     {
       id: 'friend_loan', textKey: 'friendLoan', emoji: '🤝',
       choices: [
-        { labelKey: 'lendFriend', cost: 100, socialEffect: 15, energyEffect: 0, lendingRisk: true },
+        { labelKey: 'lendFriend', cost: 67, socialEffect: 15, energyEffect: 0, lendingRisk: true },
         { labelKey: 'declineLend', cost: 0, socialEffect: -10, energyEffect: 0 },
       ],
     },
     {
       id: 'bar_mitzvah', textKey: 'barMitzvah', emoji: '🎉',
       choices: [
-        { labelKey: 'niceGift', cost: Math.round(80 * priceAdj), socialEffect: 18, energyEffect: 0 },
-        { labelKey: 'cheapGift', cost: Math.round(30 * priceAdj), socialEffect: 5, energyEffect: 0 },
+        { labelKey: 'niceGift', cost: Math.round(54 * priceAdj), socialEffect: 18, energyEffect: 0 },
+        { labelKey: 'cheapGift', cost: Math.round(20 * priceAdj), socialEffect: 5, energyEffect: 0 },
         { labelKey: 'skipEvent', cost: 0, socialEffect: -15, energyEffect: 5 },
       ],
     },
     {
       id: 'concert', textKey: 'concert', emoji: '🎵',
       choices: [
-        { labelKey: 'buyConcert', cost: Math.round(150 * priceAdj), socialEffect: 20, energyEffect: -10 },
+        { labelKey: 'buyConcert', cost: Math.round(100 * priceAdj), socialEffect: 20, energyEffect: -10 },
         { labelKey: 'skipConcert', cost: 0, socialEffect: -5, energyEffect: 5 },
       ],
     },
     {
       id: 'school_trip', textKey: 'schoolTrip', emoji: '🏕️',
       choices: [
-        { labelKey: 'payTrip', cost: Math.round(120 * priceAdj), socialEffect: 18, energyEffect: -5 },
+        { labelKey: 'payTrip', cost: Math.round(80 * priceAdj), socialEffect: 18, energyEffect: -5 },
         { labelKey: 'skipTrip', cost: 0, socialEffect: -20, energyEffect: 5 },
       ],
     },
     {
       id: 'falafel_inflation', textKey: 'falafelInflation', emoji: '🧆',
       choices: [
-        { labelKey: 'buyFalafel', cost: Math.round(25 * priceAdj), socialEffect: 5, energyEffect: 5 },
+        { labelKey: 'buyFalafel', cost: Math.round(17 * priceAdj), socialEffect: 5, energyEffect: 5 },
         { labelKey: 'bringLunch', cost: 0, socialEffect: -3, energyEffect: 0 },
       ],
     },
     {
       id: 'emergency_dentist', textKey: 'emergencyDentist', emoji: '🦷',
       choices: [
-        { labelKey: 'payDentist', cost: Math.round(180 * priceAdj), socialEffect: 0, energyEffect: 5, debtIfCantAfford: true },
+        { labelKey: 'payDentist', cost: Math.round(120 * priceAdj), socialEffect: 0, energyEffect: 5, debtIfCantAfford: true },
       ],
     },
     {
       id: 'broken_bike', textKey: 'brokenBike', emoji: '🚲💥',
       choices: [
-        { labelKey: 'fixBike', cost: Math.round(90 * priceAdj), socialEffect: 0, energyEffect: 10 },
+        { labelKey: 'fixBike', cost: Math.round(60 * priceAdj), socialEffect: 0, energyEffect: 10 },
         { labelKey: 'walkEverywhere', cost: 0, socialEffect: 0, energyEffect: -15 },
       ],
     },
     {
       id: 'sale_temptation', textKey: 'saleTemptation', emoji: '🛍️',
       choices: [
-        { labelKey: 'buySale', cost: Math.round(120 * priceAdj), socialEffect: 5, energyEffect: 0 },
+        { labelKey: 'buySale', cost: Math.round(80 * priceAdj), socialEffect: 5, energyEffect: 0 },
         { labelKey: 'resistSale', cost: 0, socialEffect: 0, energyEffect: 0 },
       ],
     },
@@ -203,7 +203,7 @@ function generateMonthEvents(month: number, inflated: boolean, hasMaaser: boolea
   if (month === 3 && hasMaaser && consecutiveMaaser >= 2) {
     events.push({
       id: 'maaser_reward', textKey: 'maaserReward', emoji: '✨',
-      choices: [{ labelKey: 'acceptReward', cost: -80, socialEffect: 10, energyEffect: 5 }],
+      choices: [{ labelKey: 'acceptReward', cost: -120, socialEffect: 10, energyEffect: 5 }],
     });
   }
 
@@ -557,7 +557,7 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
             <Text style={styles.charName}>{t('levels.level3.girlName')}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={[styles.primaryBtn, !level.gender && styles.disabledBtn]} onPress={() => { if (level.gender) { startLevel(3, 100); setShowMaaser(true); } }} disabled={!level.gender}>
+        <TouchableOpacity style={[styles.primaryBtn, !level.gender && styles.disabledBtn]} onPress={() => { if (level.gender) { startLevel(3, 150); setShowMaaser(true); } }} disabled={!level.gender}>
           <Text style={styles.primaryBtnText}>{t('common.startPlaying')}</Text>
         </TouchableOpacity>
         <MaaserModal visible={showMaaser} onAccept={() => { toggleMaaser(3, true); setShowMaaser(false); setView('howItWorks'); }} onDecline={() => { setShowMaaser(false); setView('howItWorks'); }} />
@@ -568,7 +568,7 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
   // ─── HOW IT WORKS ──────────────────────────────────────────
   if (view === 'howItWorks') {
     const steps = [
-      { emoji: '📱', title: 'Your Phone is Your Lifeline', text: 'Pay ₪50/month or it gets cut off. No phone = fewer shifts, missed social events, everything gets harder.' },
+      { emoji: '📱', title: 'Your Phone is Your Lifeline', text: 'Pay ₪34/month or it gets cut off. No phone = fewer shifts, missed social events, everything gets harder.' },
       { emoji: '💼', title: 'Take Shift Offers', text: 'Each month, shift offers come in. More work = more money, but watch your energy! Burn out and your parents limit your hours.' },
       { emoji: '🏦', title: 'Save & Earn Interest', text: 'Money in savings earns 2% monthly. But if you need cash and borrow from parents — 10% interest on debt!' },
       { emoji: '📈', title: 'Prices Go Up (Inflation)', text: 'Halfway through, everything gets 15% more expensive. Your pay stays the same. Plan ahead!' },
@@ -592,7 +592,7 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
           ))}
           <View style={styles.tipBox}>
             <Text style={styles.tipEmoji}>💡</Text>
-            <Text style={styles.tipText}>The buy-now-pay-later trap is real. ₪50/month sounds cheap until you realize you're paying ₪500 for something worth ₪400!</Text>
+            <Text style={styles.tipText}>The buy-now-pay-later trap is real. ₪34/month sounds cheap until you realize you're paying ₪335 for something worth ₪268!</Text>
           </View>
           <TouchableOpacity style={styles.greenBtn} onPress={() => setView('jobSelect')}>
             <Text style={styles.greenBtnText}>Let's Go! 🎉</Text>
