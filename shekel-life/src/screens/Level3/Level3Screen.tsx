@@ -243,9 +243,7 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
   } = useGameStore();
   const level = levels[3];
 
-  const [view, setView] = useState<Level3View>(
-    level.status === 'in_progress' ? 'shiftOffers' : 'intro'
-  );
+  const [view, setView] = useState<Level3View>('intro');
   const [showMaaser, setShowMaaser] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<SavingsGoalOption | null>(null);
@@ -470,7 +468,7 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
   };
 
   const handlePlayAgain = () => {
-    startLevel(3, 0);
+    startLevel(3, 150);
     setCurrentMonth(1);
     setEnergy(70);
     setSocial(60);
@@ -483,7 +481,7 @@ export const Level3Screen: React.FC<Level3Props> = ({ onHome, onRestart }) => {
     setInflated(false);
     setPendingLoan(0);
     setConsecutiveMaaser(0);
-    setView('jobSelect');
+    setView('howItWorks');
   };
 
   // ─── METERS BAR ────────────────────────────────────────────
