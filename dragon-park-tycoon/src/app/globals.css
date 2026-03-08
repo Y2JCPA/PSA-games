@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dragon-purple: #4a1a6b;
+  --color-dragon-gold: #ffd700;
+  --color-dragon-green: #2d8a4e;
+  --color-dragon-orange: #ff6b35;
+  --color-dragon-dark: #1a0a2e;
+  --color-dragon-light: #f5e6ff;
+  --font-family-fantasy: 'MedievalSharp', cursive;
+}
