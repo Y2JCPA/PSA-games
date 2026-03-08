@@ -43,8 +43,8 @@ export default function PlayPage() {
 
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-dragon-dark">
-      {/* Phaser game canvas */}
-      <div className="absolute inset-0" style={{ top: '44px', bottom: '72px' }}>
+      {/* Phaser game canvas — clear HUD top and build menu bottom */}
+      <div className="absolute inset-0" style={{ top: '44px', bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
         <PhaserGame parkData={parkData} />
       </div>
 

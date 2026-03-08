@@ -84,7 +84,7 @@ export default function BuildMenu() {
     <>
       {/* Ride info popup */}
       {rideCamData && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 bg-dragon-dark/95 border-2 border-dragon-gold rounded-xl p-4 min-w-64 text-center">
+        <div className="fixed left-1/2 -translate-x-1/2 z-30 bg-dragon-dark/95 border-2 border-dragon-gold rounded-xl p-4 min-w-64 text-center" style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
           <div className="text-2xl mb-1">{rideCamData.def.emoji}</div>
           <div className="text-dragon-gold font-[family-name:var(--font-family-fantasy)] text-lg">{rideCamData.def.name}</div>
           <div className="text-gray-300 text-sm mb-3">{rideCamData.def.description}</div>
@@ -107,7 +107,7 @@ export default function BuildMenu() {
 
       {/* Items panel */}
       {items && items.length > 0 && (
-        <div className="absolute bottom-20 left-0 right-0 z-10 px-2">
+        <div className="fixed left-0 right-0 z-20 px-2" style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           <div className="bg-dragon-dark/95 border-2 border-dragon-gold rounded-xl p-2 max-w-2xl mx-auto">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {items.map(item => (
@@ -133,20 +133,20 @@ export default function BuildMenu() {
         </div>
       )}
 
-      {/* Bottom toolbar */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-dragon-dark/95 border-t-2 border-dragon-gold px-2 py-2">
-        <div className="flex justify-center gap-2 max-w-lg mx-auto">
+      {/* Bottom toolbar — uses safe area inset to clear mobile browser chrome */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-dragon-dark/95 border-t-2 border-dragon-gold px-2 pt-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex justify-center gap-3 max-w-lg mx-auto">
           {CATEGORIES.map(cat => (
             <button
               key={cat.id}
               onClick={() => handleCategoryClick(cat.id)}
-              className={`flex flex-col items-center px-3 py-2 rounded-xl text-sm font-bold transition-all ${
+              className={`flex flex-col items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
                 activeCategory === cat.id
                   ? 'bg-dragon-gold text-dragon-dark scale-110 shadow-lg'
-                  : 'bg-dragon-purple text-white hover:bg-purple-600'
+                  : 'bg-dragon-purple text-white hover:bg-purple-600 active:bg-purple-700'
               }`}
             >
-              <span className="text-xl">{cat.emoji}</span>
+              <span className="text-2xl">{cat.emoji}</span>
               <span className="text-xs mt-0.5">{cat.label}</span>
             </button>
           ))}
