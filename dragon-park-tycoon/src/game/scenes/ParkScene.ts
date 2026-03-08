@@ -6,6 +6,7 @@ import { RIDES } from '../data/rides';
 import { SHOPS } from '../data/shops';
 import { DECORATIONS } from '../data/decorations';
 import { findPath, findBuildingEntrances } from '../utils/pathfinding';
+import { RideAnimator } from '../systems/RideAnimator';
 
 const ALL_DEFS: BuildingDef[] = [...RIDES, ...SHOPS, ...DECORATIONS];
 
@@ -66,6 +67,9 @@ export class ParkScene extends Phaser.Scene {
   private pinchStartDist = 0;
   private pinchStartZoom = 1;
 
+  // Ride animations
+  private rideAnimator!: RideAnimator;
+
   // Coin animations
   private coinPool: Phaser.GameObjects.Arc[] = [];
 
@@ -95,6 +99,9 @@ export class ParkScene extends Phaser.Scene {
     this.pathGraphics = this.add.graphics();
     this.buildingGraphics = this.add.graphics();
     this.previewGraphics = this.add.graphics();
+
+    // Ride animator
+    this.rideAnimator = new RideAnimator();
 
     // Draw initial state
     this.redrawAll();
@@ -145,7 +152,7 @@ export class ParkScene extends Phaser.Scene {
       const dy = pointer.y - this.dragStartY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist > 8) {
+      if (dist > 15) {
         this.isDragging = true;
         const zoom = this.cameras.main.zoom;
         this.cameras.main.scrollX = this.camStartX - dx / zoom;
@@ -312,6 +319,8 @@ export class ParkScene extends Phaser.Scene {
     this.uiTexts.forEach((t, key) => {
       if (key.startsWith('b_')) { t.destroy(); this.uiTexts.delete(key); }
     });
+    // Clear old ride animations
+    this.rideAnimator.clear();
 
     this.gridManager.buildings.forEach((building) => {
       const def = building.def;
@@ -328,14 +337,19 @@ export class ParkScene extends Phaser.Scene {
       this.buildingGraphics.lineStyle(2, 0xffffff, 0.6);
       this.buildingGraphics.strokeRect(px + 2, py + 2, pw - 4, ph - 4);
 
-      // Emoji label
-      const t = this.add.text(px + pw / 2, py + ph / 2 - 6, def.emoji, {
-        fontSize: `${Math.min(pw, ph) * 0.5}px`,
-      }).setOrigin(0.5);
-      this.uiTexts.set(building.id, t);
+      if (def.category === 'rides') {
+        // Animated ride — RideAnimator handles the visual
+        this.rideAnimator.addRide(this, building.id, def, px + 2, py + 2, pw - 4, ph - 4);
+      } else {
+        // Shops & decorations: static emoji
+        const t = this.add.text(px + pw / 2, py + ph / 2 - 6, def.emoji, {
+          fontSize: `${Math.min(pw, ph) * 0.5}px`,
+        }).setOrigin(0.5);
+        this.uiTexts.set(building.id, t);
+      }
 
       // Name label (small)
-      const nameText = this.add.text(px + pw / 2, py + ph / 2 + 12, def.name, {
+      const nameText = this.add.text(px + pw / 2, py + ph - 4, def.name, {
         fontSize: '9px',
         color: '#ffffff',
         fontFamily: 'Arial',
@@ -441,7 +455,10 @@ export class ParkScene extends Phaser.Scene {
     }
   }
 
-  update(_time: number, delta: number) {
+  update(time: number, delta: number) {
+    // Always update ride animations (even when paused, they should look alive)
+    this.rideAnimator.update(time);
+
     if (this.paused) return;
 
     const dt = (delta / 1000) * this.gameSpeed;

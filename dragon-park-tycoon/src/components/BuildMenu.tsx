@@ -75,6 +75,7 @@ export default function BuildMenu() {
   const handleWatchRide = () => {
     if (rideCamData) {
       EventBus.emit('watch-ride', rideCamData);
+      setRideCamData(null);
     }
   };
 
