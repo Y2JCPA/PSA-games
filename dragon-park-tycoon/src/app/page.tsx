@@ -2,46 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface UserInfo {
-  id: number;
-  username: string;
-}
+import { loginOrCreate, getAllUsers, type DPTUser } from '@/lib/storage';
 
 export default function Home() {
   const [name, setName] = useState('');
-  const [users, setUsers] = useState<UserInfo[]>([]);
+  const [users, setUsers] = useState<DPTUser[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    fetch('/api/user')
-      .then(r => r.json())
-      .then(data => setUsers(data.users || []))
-      .catch(() => {});
+    setUsers(getAllUsers());
   }, []);
 
-  const handleLogin = async (username: string) => {
+  const handleLogin = (username: string) => {
     if (!username.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim() }),
-      });
-      const data = await res.json();
-      if (data.user) {
-        // Store user info in sessionStorage
-        sessionStorage.setItem('userId', String(data.user.id));
-        sessionStorage.setItem('username', data.user.username);
-        if (data.parkData) {
-          sessionStorage.setItem('parkData', data.parkData);
-        } else {
-          sessionStorage.removeItem('parkData');
-        }
-        router.push('/play');
+      const { user, parkData } = loginOrCreate(username);
+      sessionStorage.setItem('userId', user.id);
+      sessionStorage.setItem('username', user.username);
+      if (parkData) {
+        sessionStorage.setItem('parkData', parkData);
+      } else {
+        sessionStorage.removeItem('parkData');
       }
+      router.push('/play');
     } catch {
       alert('Something went wrong!');
     }

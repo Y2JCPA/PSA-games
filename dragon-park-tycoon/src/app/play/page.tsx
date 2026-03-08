@@ -10,7 +10,7 @@ const BuildMenu = dynamic(() => import('@/components/BuildMenu'), { ssr: false }
 
 export default function PlayPage() {
   const router = useRouter();
-  const [userId, setUserId] = useState<number | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [parkData, setParkData] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -25,7 +25,7 @@ export default function PlayPage() {
       return;
     }
 
-    setUserId(Number(id));
+    setUserId(id);
     setUsername(name);
     setParkData(data);
     setReady(true);

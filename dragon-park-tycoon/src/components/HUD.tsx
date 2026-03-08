@@ -12,7 +12,7 @@ interface GameState {
 }
 
 interface HUDProps {
-  userId: number;
+  userId: string;
   username: string;
 }
 
@@ -35,17 +35,8 @@ export default function HUD({ userId, username }: HUDProps) {
     };
     const onSaveReady = async (data: string) => {
       try {
-        await fetch('/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId,
-            parkData: data,
-            parkName: `${username}'s Dragon Park`,
-            rating: state.rating,
-            gold: state.gold,
-          }),
-        });
+        const { savePark } = await import('@/lib/storage');
+        savePark(userId, data, `${username}'s Dragon Park`, state.rating, state.gold);
         setMessage('Game saved!');
         setTimeout(() => setMessage(null), 2000);
       } catch {

@@ -1,28 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-interface LeaderboardEntry {
-  id: number;
-  username: string;
-  park_name: string;
-  rating: number;
-  gold: number;
-  updated_at: string;
-}
+import { getLeaderboard, type DPTLeaderboardEntry } from '@/lib/storage';
 
 export default function LeaderboardPage() {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [entries, setEntries] = useState<DPTLeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/leaderboard')
-      .then(r => r.json())
-      .then(data => {
-        setEntries(data.entries || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    setEntries(getLeaderboard());
+    setLoading(false);
   }, []);
 
   const renderStars = (rating: number) => {
@@ -80,7 +67,7 @@ export default function LeaderboardPage() {
           <div className="space-y-3">
             {entries.map((entry, index) => (
               <div
-                key={entry.id}
+                key={entry.userId}
                 className={`bg-dragon-dark/80 border-2 rounded-xl p-4 flex items-center gap-4 ${
                   index < 3 ? 'border-dragon-gold' : 'border-dragon-gold/30'
                 }`}
@@ -93,7 +80,7 @@ export default function LeaderboardPage() {
                     {entry.username}
                   </div>
                   <div className="text-sm text-dragon-light/60">
-                    {entry.park_name}
+                    {entry.parkName}
                   </div>
                 </div>
                 <div className="text-right">
