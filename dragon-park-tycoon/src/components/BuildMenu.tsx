@@ -6,11 +6,13 @@ import { BuildingDef, BuildingCategory } from '@/lib/types';
 import { RIDES } from '@/game/data/rides';
 import { SHOPS } from '@/game/data/shops';
 import { DECORATIONS } from '@/game/data/decorations';
+import { STAFF_DEFS } from '@/game/data/staff';
 
-const CATEGORIES: { id: BuildingCategory | 'paths' | 'bulldoze'; label: string; emoji: string }[] = [
+const CATEGORIES: { id: BuildingCategory | 'paths' | 'bulldoze' | 'staff'; label: string; emoji: string }[] = [
   { id: 'rides', label: 'Rides', emoji: '🎢' },
   { id: 'shops', label: 'Shops', emoji: '🏪' },
   { id: 'decor', label: 'Decor', emoji: '🌳' },
+  { id: 'staff', label: 'Staff', emoji: '👷' },
   { id: 'paths', label: 'Paths', emoji: '🛤️' },
   { id: 'bulldoze', label: 'Remove', emoji: '🔨' },
 ];
@@ -24,31 +26,43 @@ const ITEMS_BY_CATEGORY: Record<string, BuildingDef[]> = {
 export default function BuildMenu() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<BuildingDef | null>(null);
-  const [rideCamData, setRideCamData] = useState<{id: string; def: BuildingDef; gridX: number; gridY: number} | null>(null);
+  const [rideCamData, setRideCamData] = useState<{
+    id: string; def: BuildingDef; gridX: number; gridY: number;
+    level?: number; broken?: boolean;
+  } | null>(null);
+  const [unlockedRideIds, setUnlockedRideIds] = useState<string[]>([]);
+  const [unlockedShopIds, setUnlockedShopIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const onBuildingSelected = (data: {id: string; def: BuildingDef; gridX: number; gridY: number}) => {
-      if (data.def.category === 'rides') {
-        setRideCamData(data);
-      }
+    const onBuildingSelected = (data: {
+      id: string; def: BuildingDef; gridX: number; gridY: number;
+      level?: number; broken?: boolean;
+    }) => {
+      setRideCamData(data);
     };
 
     const onRideCamExit = () => {
       setRideCamData(null);
     };
 
+    const onQuestUpdate = (data: { unlockedRideIds: string[]; unlockedShopIds: string[] }) => {
+      setUnlockedRideIds(data.unlockedRideIds);
+      setUnlockedShopIds(data.unlockedShopIds);
+    };
+
     EventBus.on('building-selected', onBuildingSelected);
     EventBus.on('exit-ride-cam', onRideCamExit);
+    EventBus.on('quest-update', onQuestUpdate);
 
     return () => {
       EventBus.off('building-selected', onBuildingSelected);
       EventBus.off('exit-ride-cam', onRideCamExit);
+      EventBus.off('quest-update', onQuestUpdate);
     };
   }, []);
 
   const handleCategoryClick = (catId: string) => {
     if (catId === activeCategory) {
-      // Close menu
       setActiveCategory(null);
       setSelectedItem(null);
       EventBus.emit('cancel-mode');
@@ -68,8 +82,14 @@ export default function BuildMenu() {
   };
 
   const handleItemClick = (item: BuildingDef) => {
+    if (item.category === 'rides' && !unlockedRideIds.includes(item.id)) return;
+    if (item.category === 'shops' && !unlockedShopIds.includes(item.id)) return;
     setSelectedItem(item);
     EventBus.emit('set-build-mode', item);
+  };
+
+  const handleStaffClick = (staffId: string) => {
+    EventBus.emit('set-staff-mode', staffId);
   };
 
   const handleWatchRide = () => {
@@ -79,27 +99,66 @@ export default function BuildMenu() {
     }
   };
 
+  const handleUpgradeRide = () => {
+    if (rideCamData) {
+      EventBus.emit('upgrade-ride', rideCamData.id);
+      setRideCamData(null);
+    }
+  };
+
+  const handleRepairRide = () => {
+    if (rideCamData) {
+      EventBus.emit('repair-ride', rideCamData.id);
+      setRideCamData(null);
+    }
+  };
+
+  const isItemLocked = (item: BuildingDef): boolean => {
+    if (item.category === 'rides') return !unlockedRideIds.includes(item.id);
+    if (item.category === 'shops') return !unlockedShopIds.includes(item.id);
+    return false;
+  };
+
   const items = activeCategory ? ITEMS_BY_CATEGORY[activeCategory] : null;
 
   return (
     <>
-      {/* Ride info popup */}
+      {/* Ride info popup with upgrade/repair */}
       {rideCamData && (
         <div className="fixed left-1/2 -translate-x-1/2 z-30 bg-dragon-dark/95 border-2 border-dragon-gold rounded-xl p-4 min-w-64 text-center" style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
           <div className="text-2xl mb-1">{rideCamData.def.emoji}</div>
           <div className="text-dragon-gold font-[family-name:var(--font-family-fantasy)] text-lg">{rideCamData.def.name}</div>
-          <div className="text-gray-300 text-sm mb-3">{rideCamData.def.description}</div>
-          <div className="flex gap-2 justify-center">
-            <button
-              onClick={handleWatchRide}
-              className="bg-dragon-orange px-4 py-2 rounded-lg text-white font-bold text-lg hover:bg-orange-500 transition-colors"
-            >
-              🎬 Watch Ride!
-            </button>
-            <button
-              onClick={() => setRideCamData(null)}
-              className="bg-dragon-purple px-4 py-2 rounded-lg text-white hover:bg-purple-600 transition-colors"
-            >
+
+          {rideCamData.level !== undefined && rideCamData.level > 0 && (
+            <div className="text-sm text-yellow-300 mb-1">
+              {'★'.repeat(rideCamData.level)}{'☆'.repeat(3 - rideCamData.level)}
+            </div>
+          )}
+
+          {rideCamData.broken && (
+            <div className="text-red-400 text-sm mb-2 animate-pulse">⚠️ BROKEN</div>
+          )}
+
+          <div className="flex gap-2 justify-center flex-wrap mt-2">
+            {rideCamData.def.category === 'rides' && (
+              <button onClick={handleWatchRide} className="bg-dragon-orange px-3 py-2 rounded-lg text-white font-bold hover:bg-orange-500 transition-colors">
+                🎬
+              </button>
+            )}
+
+            {rideCamData.def.category === 'rides' && rideCamData.level !== undefined && rideCamData.level < 3 && !rideCamData.broken && (
+              <button onClick={handleUpgradeRide} className="bg-blue-600 px-3 py-2 rounded-lg text-white font-bold hover:bg-blue-500 transition-colors">
+                ⬆️ 💰{rideCamData.def.cost * (rideCamData.level || 1)}
+              </button>
+            )}
+
+            {rideCamData.broken && (
+              <button onClick={handleRepairRide} className="bg-green-600 px-3 py-2 rounded-lg text-white font-bold hover:bg-green-500 transition-colors">
+                🔧 💰{Math.floor(rideCamData.def.cost * 0.3)}
+              </button>
+            )}
+
+            <button onClick={() => setRideCamData(null)} className="bg-dragon-purple px-3 py-2 rounded-lg text-white hover:bg-purple-600 transition-colors">
               ✕
             </button>
           </div>
@@ -111,22 +170,49 @@ export default function BuildMenu() {
         <div className="fixed left-0 right-0 z-20 px-2" style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           <div className="bg-dragon-dark/95 border-2 border-dragon-gold rounded-xl p-2 max-w-2xl mx-auto">
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {items.map(item => (
+              {items.map(item => {
+                const locked = isItemLocked(item);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleItemClick(item)}
+                    className={`flex-shrink-0 flex flex-col items-center p-2 rounded-lg min-w-20 transition-all ${
+                      locked
+                        ? 'bg-gray-700/60 border border-gray-600 opacity-60 cursor-not-allowed'
+                        : selectedItem?.id === item.id
+                          ? 'bg-dragon-gold/30 border-2 border-dragon-gold scale-105'
+                          : 'bg-dragon-purple/40 border border-transparent hover:bg-dragon-purple/60'
+                    }`}
+                    disabled={locked}
+                  >
+                    <span className="text-2xl">{locked ? '🔒' : item.emoji}</span>
+                    <span className="text-xs text-white font-bold mt-1 whitespace-nowrap">{locked ? '???' : item.name}</span>
+                    <span className="text-xs text-dragon-gold">💰{item.cost}</span>
+                    {item.income > 0 && !locked && (
+                      <span className="text-xs text-green-400">+{item.income}g</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Staff panel */}
+      {activeCategory === 'staff' && (
+        <div className="fixed left-0 right-0 z-20 px-2" style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
+          <div className="bg-dragon-dark/95 border-2 border-dragon-gold rounded-xl p-2 max-w-2xl mx-auto">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {STAFF_DEFS.map(staff => (
                 <button
-                  key={item.id}
-                  onClick={() => handleItemClick(item)}
-                  className={`flex-shrink-0 flex flex-col items-center p-2 rounded-lg min-w-20 transition-all ${
-                    selectedItem?.id === item.id
-                      ? 'bg-dragon-gold/30 border-2 border-dragon-gold scale-105'
-                      : 'bg-dragon-purple/40 border border-transparent hover:bg-dragon-purple/60'
-                  }`}
+                  key={staff.id}
+                  onClick={() => handleStaffClick(staff.id)}
+                  className="flex-shrink-0 flex flex-col items-center p-2 rounded-lg min-w-20 transition-all bg-dragon-purple/40 border border-transparent hover:bg-dragon-purple/60"
                 >
-                  <span className="text-2xl">{item.emoji}</span>
-                  <span className="text-xs text-white font-bold mt-1 whitespace-nowrap">{item.name}</span>
-                  <span className="text-xs text-dragon-gold">💰{item.cost}</span>
-                  {item.income > 0 && (
-                    <span className="text-xs text-green-400">+{item.income}g</span>
-                  )}
+                  <span className="text-2xl">{staff.emoji}</span>
+                  <span className="text-xs text-white font-bold mt-1 whitespace-nowrap">{staff.name}</span>
+                  <span className="text-xs text-dragon-gold">💰{staff.cost}</span>
                 </button>
               ))}
             </div>
@@ -134,7 +220,7 @@ export default function BuildMenu() {
         </div>
       )}
 
-      {/* Bottom toolbar — uses safe area inset to clear mobile browser chrome */}
+      {/* Bottom toolbar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-dragon-dark/95 border-t-2 border-dragon-gold px-2 pt-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
         <div className="flex justify-center gap-3 max-w-lg mx-auto">
           {CATEGORIES.map(cat => (

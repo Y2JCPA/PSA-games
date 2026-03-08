@@ -64,3 +64,53 @@ export interface GuestState {
   state: 'entering' | 'walking' | 'queuing' | 'riding' | 'shopping' | 'leaving';
   target: string | null;
 }
+
+// --- Quest System ---
+
+export interface QuestDef {
+  id: string;
+  type: 'build_rides' | 'earn_gold' | 'guest_count' | 'build_shops' | 'reach_rating';
+  target: number;
+  rewardRideId?: string;
+  rewardShopId?: string;
+  iconLeft: string;
+  iconRight: string;
+}
+
+export interface QuestProgress {
+  questId: string;
+  current: number;
+  completed: boolean;
+}
+
+// --- Staff System ---
+
+export type StaffType = 'janitor' | 'mechanic' | 'entertainer';
+
+export interface StaffDef {
+  id: StaffType;
+  name: string;
+  emoji: string;
+  cost: number;
+  color: number;
+}
+
+export interface PlacedStaff {
+  id: string;
+  type: StaffType;
+  gridX: number;
+  gridY: number;
+}
+
+// --- Ride Upgrades & Breakdowns ---
+
+export interface RideUpgradeState {
+  buildingId: string;
+  level: number;
+}
+
+export interface RideBreakdownState {
+  buildingId: string;
+  broken: boolean;
+  repairTimer: number;
+}
