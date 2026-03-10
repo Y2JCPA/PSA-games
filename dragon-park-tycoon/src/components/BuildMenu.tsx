@@ -5,6 +5,7 @@ import { EventBus } from '@/game/EventBus';
 import { BuildingDef, BuildingCategory } from '@/lib/types';
 import { RIDES } from '@/game/data/rides';
 import { SHOPS } from '@/game/data/shops';
+import { QUESTS } from '@/game/data/quests';
 import { DECORATIONS } from '@/game/data/decorations';
 import { STAFF_DEFS } from '@/game/data/staff';
 
@@ -22,6 +23,29 @@ const ITEMS_BY_CATEGORY: Record<string, BuildingDef[]> = {
   shops: SHOPS,
   decor: DECORATIONS,
 };
+
+const UNLOCK_REQUIREMENTS = new Map<string, string>();
+
+for (const quest of QUESTS) {
+  const requirement = (() => {
+    switch (quest.type) {
+      case 'build_rides':
+        return `Build ${quest.target} rides`;
+      case 'earn_gold':
+        return `Earn ${quest.target.toLocaleString()} gold`;
+      case 'guest_count':
+        return `Reach ${quest.target} guests`;
+      case 'build_shops':
+        return `Build ${quest.target} shops`;
+      case 'reach_rating':
+        return `Reach ${quest.target}-star rating`;
+    }
+  })();
+
+  for (const rewardId of [...(quest.rewardRideIds ?? []), ...(quest.rewardShopIds ?? [])]) {
+    UNLOCK_REQUIREMENTS.set(rewardId, requirement);
+  }
+}
 
 export default function BuildMenu() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -119,6 +143,10 @@ export default function BuildMenu() {
     return false;
   };
 
+  const getUnlockRequirement = (item: BuildingDef): string | null => {
+    return UNLOCK_REQUIREMENTS.get(item.id) ?? null;
+  };
+
   const items = activeCategory ? ITEMS_BY_CATEGORY[activeCategory] : null;
 
   return (
@@ -178,18 +206,23 @@ export default function BuildMenu() {
                     onClick={() => handleItemClick(item)}
                     className={`flex-shrink-0 flex flex-col items-center p-2 rounded-lg min-w-20 transition-all ${
                       locked
-                        ? 'bg-gray-700/60 border border-gray-600 opacity-60 cursor-not-allowed'
+                        ? 'bg-gray-700/70 border border-gray-500 opacity-80 grayscale cursor-not-allowed'
                         : selectedItem?.id === item.id
                           ? 'bg-dragon-gold/30 border-2 border-dragon-gold scale-105'
                           : 'bg-dragon-purple/40 border border-transparent hover:bg-dragon-purple/60'
                     }`}
                     disabled={locked}
                   >
-                    <span className="text-2xl">{locked ? '🔒' : item.emoji}</span>
-                    <span className="text-xs text-white font-bold mt-1 whitespace-nowrap">{locked ? '???' : item.name}</span>
-                    <span className="text-xs text-dragon-gold">💰{item.cost}</span>
-                    {item.income > 0 && !locked && (
-                      <span className="text-xs text-green-400">+{item.income}g</span>
+                    <span className="text-2xl">{locked ? `🔒 ${item.emoji}` : item.emoji}</span>
+                    <span className={`text-xs font-bold mt-1 whitespace-nowrap ${locked ? 'text-gray-200' : 'text-white'}`}>{item.name}</span>
+                    <span className={`text-xs ${locked ? 'text-gray-300' : 'text-dragon-gold'}`}>💰{item.cost}</span>
+                    {item.income > 0 && (
+                      <span className={`text-xs ${locked ? 'text-gray-400' : 'text-green-400'}`}>+{item.income}g</span>
+                    )}
+                    {locked && getUnlockRequirement(item) && (
+                      <span className="text-[10px] text-center text-gray-300 mt-1 leading-tight max-w-24">
+                        {getUnlockRequirement(item)}
+                      </span>
                     )}
                   </button>
                 );

@@ -71,8 +71,8 @@ export interface QuestDef {
   id: string;
   type: 'build_rides' | 'earn_gold' | 'guest_count' | 'build_shops' | 'reach_rating';
   target: number;
-  rewardRideId?: string;
-  rewardShopId?: string;
+  rewardRideIds?: string[];
+  rewardShopIds?: string[];
   iconLeft: string;
   iconRight: string;
 }

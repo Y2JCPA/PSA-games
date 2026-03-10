@@ -83,17 +83,17 @@ export class QuestSystem {
 
     if (prog.current >= quest.target && !prog.completed) {
       prog.completed = true;
-      // Unlock reward
-      if (quest.rewardRideId) this.unlockedRideIds.add(quest.rewardRideId);
-      if (quest.rewardShopId) this.unlockedShopIds.add(quest.rewardShopId);
+      for (const rideId of quest.rewardRideIds ?? []) {
+        this.unlockedRideIds.add(rideId);
+      }
+      for (const shopId of quest.rewardShopIds ?? []) {
+        this.unlockedShopIds.add(shopId);
+      }
 
-      // Emit quest complete event
       EventBus.emit('quest-completed', quest);
 
-      // Move to next quest
       this.activeQuestIndex++;
 
-      // Emit updated quest state
       this.emitState();
     } else {
       this.emitState();

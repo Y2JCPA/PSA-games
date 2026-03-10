@@ -3,12 +3,18 @@
 import { useState, useEffect } from 'react';
 import { EventBus } from '@/game/EventBus';
 import { QuestDef, QuestProgress } from '@/lib/types';
+import { RIDES } from '@/game/data/rides';
+import { SHOPS } from '@/game/data/shops';
 
 interface QuestState {
   quest: QuestDef | null;
   progress: QuestProgress | null;
   allCompleted: boolean;
 }
+
+const BUILDING_NAME_MAP = new Map(
+  [...RIDES, ...SHOPS].map(def => [def.id, def.name]),
+);
 
 export default function QuestPanel() {
   const [questState, setQuestState] = useState<QuestState>({
@@ -30,7 +36,11 @@ export default function QuestPanel() {
     };
 
     const onQuestCompleted = (quest: QuestDef) => {
-      const name = quest.rewardRideId || quest.rewardShopId || '';
+      const unlockedNames = [
+        ...(quest.rewardRideIds ?? []),
+        ...(quest.rewardShopIds ?? []),
+      ].map(id => BUILDING_NAME_MAP.get(id) ?? id);
+      const name = unlockedNames.join(', ');
       setUnlockedName(name);
       setCelebrating(true);
       setTimeout(() => setCelebrating(false), 3000);
@@ -58,14 +68,14 @@ export default function QuestPanel() {
       {/* Celebration overlay */}
       {celebrating && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-          <div className="animate-bounce text-center">
-            <div className="text-6xl mb-2">🎉🎊🎉</div>
-            <div className="text-3xl text-dragon-gold font-bold bg-dragon-dark/80 rounded-xl px-6 py-3 border-2 border-dragon-gold">
-              🔓 {unlockedName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+            <div className="animate-bounce text-center">
+              <div className="text-6xl mb-2">🎉🎊🎉</div>
+              <div className="text-3xl text-dragon-gold font-bold bg-dragon-dark/80 rounded-xl px-6 py-3 border-2 border-dragon-gold">
+              🔓 {unlockedName}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Quest panel */}
       <div
