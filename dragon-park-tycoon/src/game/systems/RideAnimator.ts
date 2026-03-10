@@ -36,12 +36,16 @@ export class RideAnimator {
     const cy = py + ph / 2;
     const textureKey = RIDE_TEXTURE_MAP[def.id];
 
-    const sprite: AnimatedDisplayObject = textureKey && scene.textures.exists(textureKey)
+    const hasTexture = textureKey && scene.textures.exists(textureKey);
+    const sprite: AnimatedDisplayObject = hasTexture
       ? scene.add.image(cx, cy, textureKey)
       : scene.add.text(cx, cy, def.emoji, {
-          fontSize: `${Math.max(24, Math.min(pw, ph) * 0.55)}px`,
+          fontSize: `${Math.max(18, Math.min(pw, ph) * 0.35)}px`,
         }).setOrigin(0.5);
-    const scale = Math.min(pw / 32, ph / 32) * 0.85;
+    // Image sprites need scaling from 32px base; emoji text is already sized by fontSize
+    const scale = hasTexture
+      ? Math.min(pw / 32, ph / 32) * 0.85
+      : 1.0;
     sprite.setScale(scale * (1 + (level - 1) * 0.12));
     sprite.setDepth(5);
 
