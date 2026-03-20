@@ -15,6 +15,7 @@ import { borderRadius, colors, fonts, spacing } from '../../theme';
 
 type JobId = 'grocery' | 'barista' | 'pizza';
 type GoalId = 'drivingLessons' | 'gapYearTrip' | 'armyLaptop';
+type FundType = 'safe' | 'balanced' | 'aggressive';
 
 type Level4View =
   | 'intro'
@@ -66,6 +67,7 @@ interface EventChoice {
   startGym?: boolean;
   startInstallment?: { monthly: number; months: number };
   refundNextMonth?: number;
+  startCourseBoost?: number;
 }
 
 interface MonthEvent {
@@ -81,13 +83,22 @@ interface CardLine {
   amount: number;
 }
 
+interface InvestmentSnapshot {
+  month: number;
+  principal: number;
+  value: number;
+  rate: number;
+}
+
 const TOTAL_MONTHS = 6;
 const BANK_SAVINGS_INTEREST = 0.015;
-const BANK_DEBT_INTEREST = 0.03;
-const CREDIT_CARD_INTEREST = 0.025;
-const TAX_RATE = 0.15;
+const BANK_DEBT_INTEREST = 0.02;
+const CREDIT_CARD_INTEREST = 0.02;
 const PHONE_BILL = 50;
 const FOOD_BASELINE = 400;
+const BUS_PASS = 200;
+const PARENTS_CONTRIBUTION = 300;
+const TOTAL_MANDATORY_MONTHLY = PARENTS_CONTRIBUTION + BUS_PASS + FOOD_BASELINE + PHONE_BILL;
 const GYM_MONTHLY = 150;
 
 const JOBS: JobOption[] = [
@@ -111,6 +122,12 @@ const clampMeter = (v: number) => Math.max(0, Math.min(100, v));
 
 const randomInt = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
+
+const getFundRate = (fund: FundType) => {
+  if (fund === 'safe') return randomInt(1, 3) / 100;
+  if (fund === 'balanced') return randomInt(0, 6) / 100;
+  return randomInt(-5, 10) / 100;
+};
 
 export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   const { t } = useTranslation();
@@ -149,9 +166,11 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   const [pendingFraudRefund, setPendingFraudRefund] = useState(0);
   const [creditCardUnlocked, setCreditCardUnlocked] = useState(false);
 
+  const [selectedFund, setSelectedFund] = useState<FundType>('balanced');
   const [investedPrincipal, setInvestedPrincipal] = useState(0);
   const [investmentValue, setInvestmentValue] = useState(0);
   const [lastFundRate, setLastFundRate] = useState(0);
+  const [investmentHistory, setInvestmentHistory] = useState<InvestmentSnapshot[]>([]);
 
   const [payslip, setPayslip] = useState<Payslip | null>(null);
   const [monthEvents, setMonthEvents] = useState<MonthEvent[]>([]);
@@ -167,6 +186,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
 
   const [goalSaved, setGoalSaved] = useState(0);
   const [consecutiveMaaserMonths, setConsecutiveMaaserMonths] = useState(0);
+  const [courseIncomeBoost, setCourseIncomeBoost] = useState(0);
   const [failReason, setFailReason] = useState('');
 
   const getLiveBalance = () => useGameStore.getState().levels[4].balance;
@@ -230,7 +250,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   const buildPayslipForMonth = (job: JobOption) => {
     const tips = job.id === 'barista' ? randomInt(200, 800) : 0;
     const transport = job.id === 'pizza' ? 400 : 0;
-    const gross = job.monthlyGross + tips;
+    const gross = job.monthlyGross + tips + courseIncomeBoost;
     const taxable = Math.max(0, gross - transport);
     const bituachLeumi = Math.round(taxable * 0.05);
     const masHachnasa = Math.round(taxable * 0.1);
@@ -329,6 +349,85 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
           { labelKey: 'events.skipGym', social: -4, energy: 0 },
         ],
       },
+      {
+        id: 'speeding_ticket',
+        emoji: '🚔',
+        textKey: 'events.speedingTicket',
+        choices: [{ labelKey: 'events.payFine', cashCost: 250, social: -2, energy: -1 }],
+      },
+      {
+        id: 'lost_wallet',
+        emoji: '😱',
+        textKey: 'events.lostWallet',
+        choices: [{ labelKey: 'events.acceptLoss', cashCost: 150, social: -5, energy: -2 }],
+      },
+      {
+        id: 'birthday_dinner',
+        emoji: '🎂',
+        textKey: 'events.birthdayDinner',
+        choices: [
+          { labelKey: 'events.goToDinner', cardCost: 120, social: 10, energy: -2 },
+          { labelKey: 'events.skipBirthdayDinner', social: -7, energy: 1 },
+        ],
+      },
+      {
+        id: 'broken_laptop',
+        emoji: '💻',
+        textKey: 'events.brokenLaptop',
+        choices: [
+          { labelKey: 'events.repairLaptop', cardCost: 400, social: 0, energy: 2 },
+          { labelKey: 'events.skipRepairLaptop', social: -3, energy: -8 },
+        ],
+      },
+      {
+        id: 'family_simcha',
+        emoji: '💒',
+        textKey: 'events.familySimcha',
+        choices: [
+          { labelKey: 'events.buyOutfit', cardCost: 350, social: 10, energy: 0 },
+          { labelKey: 'events.borrowOutfit', social: 2, energy: 0 },
+        ],
+      },
+      {
+        id: 'tax_refund',
+        emoji: '💰',
+        textKey: 'events.taxRefund',
+        choices: [{ labelKey: 'events.collectRefund', cashGain: 300, social: 4, energy: 2 }],
+      },
+      {
+        id: 'course_opportunity',
+        emoji: '📚',
+        textKey: 'events.courseOpportunity',
+        choices: [
+          {
+            labelKey: 'events.takeCourse',
+            cashCost: 600,
+            social: -2,
+            energy: -5,
+            startCourseBoost: 250,
+          },
+          { labelKey: 'events.skipCourse', social: 0, energy: 2 },
+        ],
+      },
+      {
+        id: 'roommate_move',
+        emoji: '🏠',
+        textKey: 'events.roommateMove',
+        choices: [
+          { labelKey: 'events.considerMoving', cashCost: 250, social: 5, energy: -2 },
+          { labelKey: 'events.stayHome', social: 1, energy: 1 },
+        ],
+      },
+      {
+        id: 'holiday_gifts',
+        emoji: '🎁',
+        textKey: 'events.holidayGifts',
+        choices: [
+          { labelKey: 'events.buyGiftsSmall', cardCost: 200, social: 6, energy: -1 },
+          { labelKey: 'events.buyGiftsBig', cardCost: 400, social: 10, energy: -2 },
+          { labelKey: 'events.skipHolidayGifts', social: -8, energy: 0 },
+        ],
+      },
     ];
 
     if (goal?.id === 'drivingLessons') {
@@ -350,6 +449,15 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
           { labelKey: 'events.delayRepair', social: -4, energy: -6 },
         ],
       });
+      possible.push({
+        id: 'tyre_puncture',
+        emoji: '🛞',
+        textKey: 'events.tyrePuncture',
+        choices: [
+          { labelKey: 'events.fixTyre', cashCost: 180, social: 0, energy: -1 },
+          { labelKey: 'events.skipTyre', social: -3, energy: -3 },
+        ],
+      });
     }
 
     if (consecutiveMaaserMonths >= 2 && month >= 3) {
@@ -362,7 +470,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
     }
 
     const shuffled = [...possible].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, month >= 3 ? 2 : 1);
+    return shuffled.slice(0, month >= 3 ? 3 : 2);
   };
 
   const startMonth = (month: number, job: JobOption) => {
@@ -389,9 +497,14 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
     }
 
     if (investmentValue > 0) {
-      const fundRate = randomInt(2, 5) / 100;
+      const fundRate = getFundRate(selectedFund);
+      const nextValue = Math.max(0, Math.round(investmentValue * (1 + fundRate)));
       setLastFundRate(fundRate);
-      setInvestmentValue(prev => Math.round(prev * (1 + fundRate)));
+      setInvestmentValue(nextValue);
+      setInvestmentHistory(prev => [
+        ...prev,
+        { month, principal: investedPrincipal, value: nextValue, rate: fundRate },
+      ]);
     } else {
       setLastFundRate(0);
     }
@@ -439,11 +552,16 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   };
 
   const handleMonthDecisionsContinue = () => {
+    spendWithOverdraft(PARENTS_CONTRIBUTION);
+
     if (creditCardUnlocked) {
+      addCardLine('statement.busPass', BUS_PASS);
       addCardLine('statement.foodGoingOut', FOOD_BASELINE);
     } else {
+      spendWithOverdraft(BUS_PASS);
       spendWithOverdraft(FOOD_BASELINE);
     }
+
     setView('investmentChoice');
   };
 
@@ -452,10 +570,16 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
       const balance = getLiveBalance();
       const actual = Math.min(amount, balance);
       if (actual > 0) {
+        const nextPrincipal = investedPrincipal + actual;
+        const nextValue = investmentValue + actual;
         spend(4, actual);
         setMonthInvestAmount(actual);
-        setInvestedPrincipal(prev => prev + actual);
-        setInvestmentValue(prev => prev + actual);
+        setInvestedPrincipal(nextPrincipal);
+        setInvestmentValue(nextValue);
+        setInvestmentHistory(prev => [
+          ...prev,
+          { month: currentMonth, principal: nextPrincipal, value: nextValue, rate: 0 },
+        ]);
       }
     }
 
@@ -492,6 +616,10 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
 
     if (choice.refundNextMonth) {
       setPendingFraudRefund(prev => prev + (choice.refundNextMonth ?? 0));
+    }
+
+    if (choice.startCourseBoost) {
+      setCourseIncomeBoost(prev => Math.max(prev, choice.startCourseBoost || 0));
     }
 
     setEnergy(prev => clampMeter(prev + choice.energy));
@@ -579,8 +707,8 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
       return;
     }
 
-    setEnergy(prev => clampMeter(prev + 8));
-    setSocial(prev => clampMeter(prev + 4));
+    setEnergy(prev => clampMeter(prev + 12));
+    setSocial(prev => clampMeter(prev + 8));
 
     const nextMonth = currentMonth + 1;
     setCurrentMonth(nextMonth);
@@ -589,7 +717,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   };
 
   const handlePlayAgain = () => {
-    startLevel(4, 500);
+    startLevel(4, 800);
     setView('howItWorks');
     setCurrentMonth(1);
     setEnergy(75);
@@ -602,9 +730,11 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
     setPhoneInstallmentMonths(0);
     setPendingFraudRefund(0);
     setCreditCardUnlocked(false);
+    setSelectedFund('balanced');
     setInvestedPrincipal(0);
     setInvestmentValue(0);
     setLastFundRate(0);
+    setInvestmentHistory([]);
     setPayslip(null);
     setMonthEvents([]);
     setEventIndex(0);
@@ -617,6 +747,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
     setMonthCardPayment(0);
     setGoalSaved(0);
     setConsecutiveMaaserMonths(0);
+    setCourseIncomeBoost(0);
     setFailReason('');
   };
 
@@ -686,7 +817,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
           disabled={!level.gender}
           onPress={() => {
             if (!level.gender) return;
-            startLevel(4, 500);
+            startLevel(4, 800);
             setShowMaaser(true);
           }}
         >
@@ -847,10 +978,14 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
           <MetersBar />
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>{t('level4.monthDecisions.fixedCosts')}</Text>
-            <Text style={styles.cardText}>• {t('level4.monthDecisions.rentHome')}: ₪0</Text>
-            <Text style={styles.cardText}>• {t('level4.monthDecisions.rentIfOut')}: ₪3,500</Text>
-            <Text style={styles.cardText}>• {t('level4.monthDecisions.phoneBill')}: ₪{PHONE_BILL}</Text>
-            <Text style={styles.cardText}>• {t('level4.monthDecisions.food')}: ₪{FOOD_BASELINE}</Text>
+            <Text style={styles.cardText}>• {t('level4.monthDecisions.parentsContribution')}: ₪{PARENTS_CONTRIBUTION}</Text>
+            <Text style={styles.cardText}>• {t('level4.monthDecisions.busPass')}: ₪{BUS_PASS}</Text>
+            <Text style={styles.cardText}>• {t('level4.monthDecisions.foodLine')}: ₪{FOOD_BASELINE}</Text>
+            <Text style={styles.cardText}>• {t('level4.monthDecisions.phoneBillLine')}: ₪{PHONE_BILL}</Text>
+            <View style={styles.divider} />
+            <Text style={styles.moneyText}>
+              {t('level4.monthDecisions.totalMandatory', { amount: TOTAL_MANDATORY_MONTHLY })}
+            </Text>
           </View>
           {currentMonth === 2 && (
             <View style={styles.alertCard}>
@@ -869,6 +1004,7 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   if (view === 'investmentChoice') {
     const balance = getLiveBalance();
     const options = [0, 200, 500, 1000].filter(v => v <= balance || v === 0);
+    const chartMax = Math.max(investedPrincipal, Math.round(investmentValue), 1);
 
     return (
       <SafeAreaView style={styles.screen}>
@@ -876,11 +1012,43 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>{t('level4.investing.title')}</Text>
           <MetersBar />
-          <View style={styles.brandCard}>
-            <Text style={styles.brandTitle}>{t('level4.investing.brandTitle')}</Text>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>{t('level4.investing.brandTitle')}</Text>
             <Text style={styles.cardText}>{t('level4.investing.brandText')}</Text>
           </View>
-          <Text style={styles.subtitle}>{t('level4.investing.available', { amount: balance })}</Text>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>{t('level4.investing.chooseFund')}</Text>
+            {(['safe', 'balanced', 'aggressive'] as FundType[]).map(fund => (
+              <TouchableOpacity
+                key={fund}
+                style={[styles.secondaryBtn, selectedFund === fund && styles.selectedCard]}
+                onPress={() => setSelectedFund(fund)}
+              >
+                <Text style={styles.secondaryBtnText}>{t(`level4.investing.fund.${fund}.name`)}</Text>
+                <Text style={styles.cardText}>{t(`level4.investing.fund.${fund}.desc`)}</Text>
+                <Text style={styles.microText}>{t(`level4.investing.fund.${fund}.range`)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.statementCard}>
+            <Text style={styles.statementRow}>{t('level4.investing.available', { amount: balance })}</Text>
+            <Text style={styles.statementRow}>{t('level4.win.principal')}: ₪{investedPrincipal}</Text>
+            <Text style={styles.statementRow}>{t('level4.investing.currentValue')}: ₪{Math.round(investmentValue)}</Text>
+
+            <View style={styles.divider} />
+            <Text style={styles.cardText}>{t('level4.win.principal')}</Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.round((investedPrincipal / chartMax) * 100)}%` }]} />
+            </View>
+            <Text style={styles.cardText}>{t('level4.investing.currentValue')}</Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.round((Math.max(0, investmentValue) / chartMax) * 100)}%` }]} />
+            </View>
+          </View>
+
           {options.map(amount => (
             <TouchableOpacity
               key={amount}
@@ -894,6 +1062,17 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
               </Text>
             </TouchableOpacity>
           ))}
+
+          {investmentHistory.length > 0 && (
+            <View style={styles.infoCard}>
+              <Text style={styles.cardTitle}>{t('level4.investing.history')}</Text>
+              {investmentHistory.slice(-4).map((item, idx) => (
+                <Text key={`${item.month}-${idx}`} style={styles.cardText}>
+                  M{item.month}: ₪{item.principal} → ₪{Math.round(item.value)}
+                </Text>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -1014,6 +1193,11 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
             {lastFundRate > 0 && (
               <Text style={styles.statementRow}>
                 {t('level4.summary.fundGrowth', { rate: Math.round(lastFundRate * 100) })}
+              </Text>
+            )}
+            {lastFundRate < 0 && (
+              <Text style={styles.statementRowDanger}>
+                {t('level4.summary.fundLoss', { rate: Math.abs(Math.round(lastFundRate * 100)) })}
               </Text>
             )}
           </View>

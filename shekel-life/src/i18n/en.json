@@ -63,8 +63,8 @@
       "title": "The Road to Independence",
       "subtitle": "Ages 15–17",
       "description": "Manage a bank account, invest, and prepare for the future.",
-      "boyName": "Noam",
-      "girlName": "Noa",
+      "boyName": "Ezri",
+      "girlName": "Devorah",
       "intro": "You're almost independent! Open a bank account, learn about investing, and plan for your gap year or army prep. Big decisions start now."
     }
   },
@@ -518,7 +518,7 @@
         "cardTitle": "Credit Card in Month 2",
         "cardText": "Use your card, review statements, and avoid the minimum-payment trap.",
         "investTitle": "Optional Investing",
-        "investText": "You can invest monthly in a fund that grows at a variable return (2-5%).",
+        "investText": "Choose a fund (safe, balanced, or aggressive) and watch your money grow — or shrink.",
         "winTitle": "Win Condition",
         "winText": "After 6 months: reach your savings goal, keep positive balance, and clear all debt."
       },
@@ -553,23 +553,59 @@
       "continue": "Add Net Pay and Continue"
     },
     "monthDecisions": {
-      "title": "Monthly Decisions",
-      "fixedCosts": "Baseline Monthly Expenses",
+      "title": "Monthly Expenses",
+      "fixedCosts": "Mandatory Monthly Costs",
+      "parentsContribution": "🏠 Contribution to parents (living at home)",
+      "busPass": "🚌 Bus pass",
+      "phoneBillLine": "📱 Phone bill",
+      "foodLine": "🥙 Food & going out (baseline)",
+      "totalMandatory": "Total mandatory this month: ₪{{amount}}",
       "rentHome": "Rent (living at home)",
       "rentIfOut": "If you moved out",
       "phoneBill": "Phone bill",
       "food": "Food + going out",
       "cardUnlockedTitle": "Credit Card Activated",
       "cardUnlockedText": "You now have a card. Purchases appear in your monthly statement.",
-      "continue": "Continue to Investing"
+      "continue": "Pay Mandatory Expenses & Continue",
+      "parentContribution": "🏠 Contribution to parents",
+      "totalFixed": "Total monthly fixed costs"
     },
     "investing": {
-      "title": "Blue & White Finance Investing Module",
-      "brandTitle": "By Nadav Ellinson | Blue & White Finance",
-      "brandText": "Invest any amount this month into \"the fund\" and compare outcomes at the end.",
+      "title": "Investment Module",
+      "brandTitle": "Investment Module",
+      "brandText": "Choose a fund, invest monthly, and compare your principal to the final value.",
+      "fundSafe": "🛡️ Safe Fund (1-3% monthly)",
+      "fundBalanced": "⚖️ Balanced Fund (0-6% monthly)",
+      "fundAggressive": "🔥 Aggressive Fund (-5% to +10% monthly)",
+      "fundSafeDesc": "Low risk, steady growth. Like a savings account with better returns.",
+      "fundBalancedDesc": "Medium risk. Could grow nicely or stay flat.",
+      "fundAggressiveDesc": "High risk! Could grow fast or LOSE money.",
+      "chooseFund": "Choose Your Fund",
+      "currentFund": "Current fund: {{fund}}",
+      "fundReturn": "This month's return: {{rate}}%",
       "available": "Current available cash: ₪{{amount}}",
       "skip": "Skip investing this month",
-      "investAmount": "Invest ₪{{amount}}"
+      "investAmount": "Invest ₪{{amount}}",
+      "currentValue": "Current fund value",
+      "history": "Investment History",
+      "selectFundFirst": "Select a fund type above before investing",
+      "fund": {
+        "safe": {
+          "name": "Safe Fund 🏦",
+          "desc": "Low risk. Returns 1–3% per month. Best for steady growth.",
+          "range": "1–3%/month"
+        },
+        "balanced": {
+          "name": "Balanced Fund ⚖️",
+          "desc": "Moderate risk. Returns 0–6% per month. Good middle ground.",
+          "range": "0–6%/month"
+        },
+        "aggressive": {
+          "name": "Aggressive Fund 🚀",
+          "desc": "High risk! Returns -5% to +10% per month. Can lose money!",
+          "range": "-5% to +10%/month"
+        }
+      }
     },
     "events": {
       "header": "Month {{month}} Event {{current}}/{{total}}",
@@ -603,7 +639,44 @@
       "payRepair": "Pay repair",
       "delayRepair": "Delay repair",
       "maaserReward": "Because you gave maaser consistently, a community mentor helped you land a paid opportunity.",
-      "acceptReward": "Accept the reward"
+      "acceptReward": "Accept the reward",
+      "speedingTicket": "🚔 You got a speeding ticket! ₪250 fine.",
+      "payFine": "Pay the ₪250 fine",
+      "lostWallet": "😱 You lost your wallet with ₪150 cash inside!",
+      "acceptLoss": "Gone forever...",
+      "birthdayDinner": "🎂 Friend's birthday dinner tonight. Your share will be ₪120.",
+      "goToDinner": "Go to dinner (₪120)",
+      "skipBirthdayDinner": "Skip — send a text",
+      "brokenLaptop": "💻 Your laptop screen cracked! Repair costs ₪400.",
+      "repairLaptop": "Repair it (₪400)",
+      "skipRepairLaptop": "Manage without it",
+      "familySimcha": "👔 Surprise family simcha! You need a nice outfit — ₪350.",
+      "buyOutfit": "Buy the outfit",
+      "borrowOutfit": "Borrow from a friend",
+      "tyrePuncture": "🚗 Flat tyre! Replacement costs ₪180.",
+      "fixTyre": "Replace the tyre",
+      "skipTyre": "Delay the fix",
+      "taxRefund": "🎉 Surprise! You got a tax refund of ₪300.",
+      "collectRefund": "Nice!",
+      "courseOpportunity": "📚 A part-time course costs ₪600 but could boost your career.",
+      "takeCourse": "Invest in yourself",
+      "skipCourse": "Too expensive right now",
+      "roommateMove": "🏠 A friend suggests you two split an apartment. Rent would be ₪1,500/person — worth exploring?",
+      "considerMoving": "Sounds interesting!",
+      "stayHome": "Stay home for now",
+      "holidayGifts": "🎁 Holiday season! Family expects gifts — budget ₪300.",
+      "buyGiftsSmall": "Modest gifts (₪200)",
+      "buyGiftsBig": "Generous gifts (₪400)",
+      "skipHolidayGifts": "Skip gifts this year",
+      "payTicket": "Pay the fine",
+      "contestTicket": "Contest it (50% chance dismissed)",
+      "goDinner": "Go celebrate!",
+      "skipDinner": "Skip it",
+      "fixLaptop": "Fix it",
+      "liveCracked": "Live with the cracks",
+      "buyGifts": "Buy gifts for everyone",
+      "budgetGifts": "Budget gifts only (₪150)",
+      "skipGifts": "Skip gifts this year"
     },
     "statement": {
       "title": "Credit Card Statement",
@@ -617,7 +690,9 @@
       "gymMembership": "Gym membership",
       "phoneInstallment": "Phone upgrade installment",
       "foodGoingOut": "Food & going out baseline",
-      "phoneBill": "Monthly phone bill"
+      "phoneBill": "Monthly phone bill",
+      "busPass": "Monthly bus pass",
+      "parentsContribution": "Contribution to parents"
     },
     "summary": {
       "title": "Month {{month}} Summary",
@@ -628,7 +703,8 @@
       "cardSpent": "Card charges",
       "cardPaid": "Card payment made",
       "investedThisMonth": "Invested this month",
-      "fundGrowth": "Fund grew this month by {{rate}}%",
+      "fundGrowth": "Fund grew this month by +{{rate}}%",
+      "fundLoss": "Fund lost {{rate}}% this month",
       "goalProgress": "Savings Goal Progress",
       "moveToSavings": "Move Money to Savings Account",
       "payDebt": "Pay Down Bank Debt",
@@ -656,6 +732,11 @@
       "cardDebt": "Credit card debt",
       "effective": "Effective balance",
       "playAgain": "Try Again"
+    },
+    "phoneBill": {
+      "title": "Phone Bill",
+      "text": "Monthly phone bill: ₪{{amount}}. Pay it now to avoid penalties.",
+      "continue": "Pay Phone Bill"
     }
   }
 }
