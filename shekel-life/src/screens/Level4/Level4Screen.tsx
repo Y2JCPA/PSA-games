@@ -780,12 +780,12 @@ export const Level4Screen: React.FC<Level4Props> = ({ onHome, onRestart }) => {
   if (view === 'intro') {
     return (
       <SafeAreaView style={styles.centerContainer}>
-        <Text style={styles.bigEmoji}>🎓</Text>
+        <Text style={styles.bigEmoji}>🚧</Text>
         <Text style={styles.title}>{t('levels.level4.title')}</Text>
         <Text style={styles.subtitle}>{t('levels.level4.subtitle')}</Text>
-        <Text style={styles.description}>{t('levels.level4.intro')}</Text>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => setView('characterSelect')}>
-          <Text style={styles.primaryBtnText}>{t('common.startPlaying')}</Text>
+        <Text style={{fontSize: 18, color: '#526174', textAlign: 'center', marginBottom: 16, lineHeight: 26}}>Coming Soon!{String.fromCharCode(10)}{String.fromCharCode(10)}We are rebuilding this level with new features, better investing, and more realistic expenses. Check back soon!</Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={onHome}>
+          <Text style={styles.primaryBtnText}>← Back to Home</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
