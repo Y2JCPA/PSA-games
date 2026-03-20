@@ -86,14 +86,14 @@ function generateShiftOffers(month: number, job: Job, hasPhone: boolean, inflate
   const isYomTov = month === 2 || month === 5;
 
   const allShifts: ShiftOffer[] = [
-    { id: 'evening_sit', descKey: 'eveningSit', pay: job.basePayPerShift, energyCost: 15, socialCost: 10, socialGain: 0, conflictKey: 'missBowling' },
-    { id: 'weekend_gig', descKey: 'weekendGig', pay: job.basePayPerShift + 15, energyCost: 20, socialCost: 15, socialGain: 0, conflictKey: 'missFriends' },
-    { id: 'double_shift', descKey: 'doubleShift', pay: job.basePayPerShift * 2, energyCost: 35, socialCost: 5, socialGain: 0 },
-    { id: 'friend_tutor', descKey: 'friendTutor', pay: job.basePayPerShift - 10, energyCost: 10, socialCost: 0, socialGain: 12 },
-    { id: 'rush_delivery', descKey: 'rushDelivery', pay: job.basePayPerShift + 20, energyCost: 25, socialCost: 0, socialGain: 0 },
-    { id: 'easy_gig', descKey: 'easyGig', pay: Math.round(job.basePayPerShift * 0.7), energyCost: 5, socialCost: 0, socialGain: 0 },
-    { id: 'group_job', descKey: 'groupJob', pay: job.basePayPerShift, energyCost: 12, socialCost: 0, socialGain: 15 },
-    { id: 'late_night', descKey: 'lateNight', pay: job.basePayPerShift + 25, energyCost: 30, socialCost: 20, socialGain: 0, conflictKey: 'missSleep' },
+    { id: 'evening_sit', descKey: 'eveningSit', pay: job.basePayPerShift, energyCost: 10, socialCost: 10, socialGain: 0, conflictKey: 'missBowling' },
+    { id: 'weekend_gig', descKey: 'weekendGig', pay: job.basePayPerShift + 15, energyCost: 15, socialCost: 15, socialGain: 0, conflictKey: 'missFriends' },
+    { id: 'double_shift', descKey: 'doubleShift', pay: job.basePayPerShift * 2, energyCost: 28, socialCost: 5, socialGain: 0 },
+    { id: 'friend_tutor', descKey: 'friendTutor', pay: job.basePayPerShift - 10, energyCost: 6, socialCost: 0, socialGain: 12 },
+    { id: 'rush_delivery', descKey: 'rushDelivery', pay: job.basePayPerShift + 20, energyCost: 20, socialCost: 0, socialGain: 0 },
+    { id: 'easy_gig', descKey: 'easyGig', pay: Math.round(job.basePayPerShift * 0.7), energyCost: 3, socialCost: 0, socialGain: 0 },
+    { id: 'group_job', descKey: 'groupJob', pay: job.basePayPerShift, energyCost: 8, socialCost: 0, socialGain: 15 },
+    { id: 'late_night', descKey: 'lateNight', pay: job.basePayPerShift + 25, energyCost: 24, socialCost: 20, socialGain: 0, conflictKey: 'missSleep' },
   ];
 
   if (!hasPhone) {
@@ -116,7 +116,7 @@ function generateMonthEvents(month: number, inflated: boolean, hasMaaser: boolea
     {
       id: 'phone_cracked', textKey: 'phoneCracked', emoji: '📱💥',
       choices: [
-        { labelKey: 'fixPhone', cost: Math.round(134 * priceAdj), socialEffect: 0, energyEffect: 0 },
+        { labelKey: 'fixPhone', cost: Math.round(90 * priceAdj), socialEffect: 0, energyEffect: 0 },
         { labelKey: 'liveCracked', cost: 0, socialEffect: -5, energyEffect: -5 },
       ],
     },
@@ -167,13 +167,13 @@ function generateMonthEvents(month: number, inflated: boolean, hasMaaser: boolea
     {
       id: 'emergency_dentist', textKey: 'emergencyDentist', emoji: '🦷',
       choices: [
-        { labelKey: 'payDentist', cost: Math.round(120 * priceAdj), socialEffect: 0, energyEffect: 5, debtIfCantAfford: true },
+        { labelKey: 'payDentist', cost: Math.round(80 * priceAdj), socialEffect: 0, energyEffect: 5, debtIfCantAfford: true },
       ],
     },
     {
       id: 'broken_bike', textKey: 'brokenBike', emoji: '🚲💥',
       choices: [
-        { labelKey: 'fixBike', cost: Math.round(60 * priceAdj), socialEffect: 0, energyEffect: 10 },
+        { labelKey: 'fixBike', cost: Math.round(40 * priceAdj), socialEffect: 0, energyEffect: 10 },
         { labelKey: 'walkEverywhere', cost: 0, socialEffect: 0, energyEffect: -15 },
       ],
     },
